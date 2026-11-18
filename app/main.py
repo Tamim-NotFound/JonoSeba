@@ -1,11 +1,14 @@
 from fastapi import APIRouter, FastAPI
 from app.core.config import settings
 from app.core.exception_handlers import register_exception_handlers
+from app.modules.auth.controllers import (
+    router as auth_router,
+)
 from app.modules.departments.controllers import (
     router as departments_router,
 )
 
-# Step 1: Create FastAPI application
+
 app = FastAPI(
     title=settings.APP_NAME,
     description=settings.APP_DESCRIPTION,
@@ -13,10 +16,16 @@ app = FastAPI(
     debug=settings.DEBUG,
 )
 
-# Step 2: Register global exception handlers
+
+# Register centralized exception handlers.
 register_exception_handlers(app)
 
-api_router = APIRouter(prefix=settings.API_V1_PREFIX)
+
+# All API endpoints use /api/v1.
+api_router = APIRouter(
+    prefix=settings.API_V1_PREFIX,
+)
+
 
 @api_router.get("/health", tags=["Health"])
 async def health_check():
@@ -27,8 +36,9 @@ async def health_check():
         "message": "JonoSeba API is running successfully.",
     }
 
-# Step 4: Register department routes
+# Register feature routers.
 api_router.include_router(departments_router)
+api_router.include_router(auth_router)
 
-# Step 5: Register API router with FastAPI
+# Attach versioned routes to the application.
 app.include_router(api_router)
