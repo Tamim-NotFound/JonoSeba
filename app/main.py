@@ -1,24 +1,27 @@
+
 from fastapi import APIRouter, FastAPI
 
+from app.core.config import settings
+
+
 app = FastAPI(
-    title="JonoSeba API",
-    description=(
-        "AI-Powered Smart Citizen Services "
-        "and Complaint Management Platform."
-    ),
-    version="0.1.0",
+    title=settings.APP_NAME,
+    description=settings.APP_DESCRIPTION,
+    version=settings.APP_VERSION,
+    debug=settings.DEBUG,
 )
 
-api_router = APIRouter(prefix="/api/v1")
+api_router = APIRouter(prefix=settings.API_V1_PREFIX)
+
 
 @api_router.get("/health", tags=["Health"])
 async def health_check():
-    """Check whether the JonoSeba API is running."""
     return {
         "status": "healthy",
         "application": "JonoSeba",
-        "version": "0.1.0",
+        "version": settings.APP_VERSION,
         "message": "JonoSeba API is running successfully.",
     }
+
 
 app.include_router(api_router)
