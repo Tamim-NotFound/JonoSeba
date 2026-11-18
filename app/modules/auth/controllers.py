@@ -12,10 +12,12 @@ from app.modules.auth.schemas import (
 )
 from app.modules.auth.services import AuthService
 
+
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
+
 
 AuthServiceDep = Annotated[
     AuthService,
