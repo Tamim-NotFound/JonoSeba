@@ -1,6 +1,9 @@
 from typing import Annotated
 from fastapi import Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import (
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import UnauthorizedError
 from app.core.security import decode_access_token
@@ -10,14 +13,13 @@ from app.modules.auth.repositories import UserRepository
 from app.modules.auth.services import AuthService
 
 
-# HTTP Bearer authentication for protected endpoints.
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_auth_service(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AuthService:
-    """Provide AuthService using dependency injection."""
+    """Provide AuthService through dependency injection."""
     return AuthService(db)
 
 
@@ -31,7 +33,7 @@ async def get_current_user(
         Depends(get_db),
     ],
 ) -> User:
-    """Return the authenticated user from a valid JWT."""
+    """Validate JWT and return the active database user."""
 
     if credentials is None:
         raise UnauthorizedError(
