@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.modules.departments.models import Department
 from app.modules.auth.models import User
+from app.modules.complaints.models import Complaint
 from app.modules.departments import models as department_models  # noqa: F401
 
 config = context.config
