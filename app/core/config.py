@@ -20,7 +20,20 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = Field(min_length=32)
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
-        default=60,
+        default=30,
+        gt=0,
+    )
+
+    # Google Gemini AI
+    GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
+    GEMINI_TEMPERATURE: float = Field(
+        default=0.3,
+        ge=0,
+        le=2,
+    )
+    GEMINI_MAX_OUTPUT_TOKENS: int = Field(
+        default=800,
         gt=0,
     )
 
@@ -30,8 +43,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
 
 settings = get_settings()
