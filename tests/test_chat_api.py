@@ -8,6 +8,7 @@ from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import UserRole
 from app.modules.chat.services import ChatService
 
+
 CHAT_URL = "/api/v1/chat"
 
 CITIZEN = SimpleNamespace(
@@ -50,7 +51,16 @@ def test_anonymous_user_cannot_chat(client):
 def test_citizen_can_chat(client):
     authorize_as_citizen()
 
-    async def fake_chat(self, data):
+    async def fake_chat(
+        self,
+        data,
+        db,
+        current_user,
+    ):
+        assert data.message == VALID_REQUEST["message"]
+        assert db is not None
+        assert current_user.id == CITIZEN.id
+
         return {
             "reply": "You can submit a streetlight complaint.",
             "model": "gemini-3.1-flash-lite",
@@ -86,7 +96,15 @@ def test_citizen_can_send_conversation_history(client):
         ],
     }
 
-    async def fake_chat(self, data):
+    async def fake_chat(
+        self,
+        data,
+        db,
+        current_user,
+    ):
+        assert db is not None
+        assert current_user.id == CITIZEN.id
+
         assert len(data.history) == 2
         assert data.history[0].role == "user"
         assert data.history[1].role == "model"
@@ -165,7 +183,19 @@ def test_gemini_unavailable_returns_503(client):
     authorize_as_citizen()
 
     class FakeGeminiClient:
-        def generate_response(self, message, history):
+        async def generate_response(
+            self,
+            *,
+            message,
+            history,
+            db,
+            current_user,
+        ):
+            assert message == VALID_REQUEST["message"]
+            assert history == []
+            assert db is not None
+            assert current_user.id == CITIZEN.id
+
             raise ServerError(
                 503,
                 {
@@ -178,11 +208,11 @@ def test_gemini_unavailable_returns_503(client):
                 None,
             )
 
-        def close(self):
+        async def close(self):
             pass
 
     with patch(
-        "app.modules.chat.services.GeminiLLMClient",
+        "app.modules.chat.services.GeminiToolClient",
         FakeGeminiClient,
     ):
         response = client.post(
@@ -191,10 +221,12 @@ def test_gemini_unavailable_returns_503(client):
         )
 
     assert response.status_code == 503
+
     assert response.json() == {
         "detail": (
             "JonoSeba AI is temporarily unavailable. "
             "Please try again later."
         )
     }
+
     assert response.headers["retry-after"] == "30"
