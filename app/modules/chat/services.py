@@ -1,9 +1,10 @@
 import logging
 from fastapi import HTTPException
-from fastapi.concurrency import run_in_threadpool
 from google.genai.errors import APIError
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
-from app.integrations.llm.client import GeminiLLMClient
+from app.integrations.llm.tool_client import GeminiToolClient
+from app.modules.auth.models import User
 from app.modules.chat.schemas import ChatRequest, ChatResponse
 
 
@@ -11,8 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class ChatService:
-    async def chat(self, data: ChatRequest) -> ChatResponse:
-        client = GeminiLLMClient()
+    async def chat(
+        self,
+        data: ChatRequest,
+        db: AsyncSession,
+        current_user: User,
+    ) -> ChatResponse:
+        client = GeminiToolClient()
 
         try:
             history = [
@@ -23,10 +29,11 @@ class ChatService:
                 for item in data.history
             ]
 
-            reply = await run_in_threadpool(
-                client.generate_response,
-                data.message,
-                history,
+            reply = await client.generate_response(
+                message=data.message,
+                history=history,
+                db=db,
+                current_user=current_user,
             )
 
             return ChatResponse(
@@ -60,5 +67,19 @@ class ChatService:
                 ),
             ) from error
 
+        except RuntimeError as error:
+            logger.warning(
+                "Gemini tool-calling failed: %s",
+                type(error).__name__,
+            )
+
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "JonoSeba AI could not complete the request. "
+                    "Please try again later."
+                ),
+            ) from error
+
         finally:
-            client.close()
+            await client.close()
