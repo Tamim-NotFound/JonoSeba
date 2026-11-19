@@ -11,7 +11,6 @@ from app.modules.departments.schemas import (
 )
 from app.modules.departments.services import DepartmentService
 
-
 router = APIRouter(
     prefix="/departments",
     tags=["Departments"],
@@ -88,3 +87,17 @@ async def update_department(
         department_id,
         data,
     )
+
+
+@router.delete(
+    "/{department_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_department(
+    department_id: int,
+    service: DepartmentServiceDep,
+    admin: AdminUserDep,
+):
+    """Delete a department. Admin only."""
+
+    await service.delete(department_id)
