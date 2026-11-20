@@ -1,11 +1,20 @@
-from typing import Any
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from typing import Annotated, Any
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationError,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.integrations.llm.tools.complaints import (
     get_my_complaint_status,
 )
 from app.integrations.llm.tools.departments import (
     list_departments,
+)
+from app.integrations.llm.tools.knowledge import (
+    search_published_knowledge,
 )
 from app.modules.auth.models import User
 
@@ -28,6 +37,19 @@ class ComplaintStatusArgs(BaseModel):
     )
 
 
+class KnowledgeSearchArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    query: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True,
+            min_length=1,
+            max_length=2000,
+        ),
+    ]
+
+
 async def execute_ai_tool(
     *,
     tool_name: str,
@@ -38,7 +60,7 @@ async def execute_ai_tool(
     """
     Execute only approved JonoSeba AI tools.
 
-    The database session and authenticated user are
+    Database session and authenticated user are
     provided by the backend, never by Gemini.
     """
 
@@ -84,6 +106,27 @@ async def execute_ai_tool(
             db=db,
             complaint_id=validated.complaint_id,
             current_user=current_user,
+        )
+
+        return {
+            "success": True,
+            "data": result,
+        }
+
+    if tool_name == "search_published_knowledge":
+        try:
+            validated = KnowledgeSearchArgs.model_validate(
+                arguments
+            )
+        except ValidationError:
+            return {
+                "success": False,
+                "error": "Invalid knowledge search arguments.",
+            }
+
+        result = await search_published_knowledge(
+            db=db,
+            query=validated.query,
         )
 
         return {
