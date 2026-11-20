@@ -13,13 +13,12 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 
 
-# We will use a 768-dimensional embedding model.
-# The embedding generation service must use this exact dimension.
 EMBEDDING_DIMENSIONS = 768
 
 
@@ -122,5 +121,79 @@ class KnowledgeChunk(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class KnowledgePublicationAudit(Base):
+    """
+    Records who reviewed and published a knowledge
+    document, along with its supporting evidence.
+
+    Existing records should not be overwritten when
+    a document is republished.
+    """
+
+    __tablename__ = "knowledge_publication_audits"
+
+    __table_args__ = (
+        Index(
+            "ix_knowledge_audit_document_key",
+            "document_key",
+        ),
+        Index(
+            "ix_knowledge_audit_reviewer_id",
+            "reviewer_id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    document_key: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+    )
+
+    document_title: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    reviewer_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+
+    source_url: Mapped[str] = mapped_column(
+        String(2048),
+        nullable=False,
+    )
+
+    source_name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    approved_content_sha256: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+    )
+
+    claim_evidence: Mapped[list[dict]] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+
+    published_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
         nullable=False,
     )

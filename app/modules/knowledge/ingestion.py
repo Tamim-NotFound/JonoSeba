@@ -23,14 +23,6 @@ class KnowledgeDocumentInput:
 
 
 class KnowledgeIngestionService:
-    """
-    Ingest a municipal service document into PostgreSQL.
-
-    Embeddings are generated before database changes.
-
-    Existing chunks are replaced within one transaction.
-    """
-
     def __init__(
         self,
         db: AsyncSession,
@@ -42,7 +34,23 @@ class KnowledgeIngestionService:
     async def ingest_document(
         self,
         document: KnowledgeDocumentInput,
+        *,
+        commit: bool = True,
     ) -> dict:
+        """
+        Chunk, embed and replace a knowledge document.
+
+        commit=True:
+            Preserve the existing standalone behavior.
+
+        commit=False:
+            Flush changes without committing.
+            The caller must commit or roll back the
+            database transaction.
+
+        Do not call commit=False and then abandon
+        the session without completing the transaction.
+        """
         self._validate_document(document)
 
         chunks = chunk_document(document.content)
@@ -52,8 +60,7 @@ class KnowledgeIngestionService:
                 "Document must contain non-empty content."
             )
 
-        # Generate every embedding before modifying the DB.
-        # An API failure must not delete existing knowledge.
+        # Generate all embeddings before replacing old data.
         embeddings = []
 
         for chunk in chunks:
@@ -62,10 +69,13 @@ class KnowledgeIngestionService:
             )
             embeddings.append(vector)
 
+        document_key = document.document_key.strip()
+        document_title = document.document_title.strip()
+
         records = [
             KnowledgeChunk(
-                document_key=document.document_key.strip(),
-                document_title=document.document_title.strip(),
+                document_key=document_key,
+                document_title=document_title,
                 chunk_index=index,
                 content=chunk,
                 language=document.language,
@@ -79,25 +89,28 @@ class KnowledgeIngestionService:
         ]
 
         try:
-            # Delete and insert participate in the same
-            # database transaction.
             await self.db.execute(
                 delete(KnowledgeChunk).where(
                     KnowledgeChunk.document_key
-                    == document.document_key.strip()
+                    == document_key
                 )
             )
 
             self.db.add_all(records)
 
-            await self.db.commit()
+            if commit:
+                await self.db.commit()
+            else:
+                # SQL changes execute inside the current
+                # transaction; nothing is committed yet.
+                await self.db.flush()
 
         except Exception:
             await self.db.rollback()
             raise
 
         return {
-            "document_key": document.document_key.strip(),
+            "document_key": document_key,
             "chunk_count": len(records),
             "language": document.language.value,
             "is_published": document.is_published,
@@ -160,13 +173,14 @@ class KnowledgeIngestionService:
                     "verified_at must include a timezone."
                 )
 
-            if document.verified_at > datetime.now(timezone.utc):
+            if (
+                document.verified_at
+                > datetime.now(timezone.utc)
+            ):
                 raise ValueError(
                     "verified_at cannot be in the future."
                 )
 
-        # A published document must have verification metadata.
-        # This validates metadata presence, not source authenticity.
         if document.is_published:
             if document.verified_at is None:
                 raise ValueError(
@@ -182,5 +196,6 @@ class KnowledgeIngestionService:
                 ("https://", "http://")
             ):
                 raise ValueError(
-                    "Published source_url must be an HTTP(S) URL."
+                    "Published source_url must be "
+                    "an HTTP(S) URL."
                 )
