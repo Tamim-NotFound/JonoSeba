@@ -42,12 +42,19 @@ async def test_all_three_tools_are_registered():
 
 
 async def test_rag_instructions_preserve_original_prompt():
-    assert "search_published_knowledge" in (
-        JONOSEBA_TOOL_SYSTEM_PROMPT
+    prompt = JONOSEBA_TOOL_SYSTEM_PROMPT.casefold()
+
+    assert "search_published_knowledge" in prompt
+
+    # Accept equivalent wording without weakening
+    # the requirement against fabricated fees.
+    assert (
+        "do not invent fees" in prompt
+        or "never invent fees" in prompt
     )
-    assert "Do not invent fees" in (
-        JONOSEBA_TOOL_SYSTEM_PROMPT
-    )
+
+    assert "retrieved excerpts" in prompt
+    assert "source urls" in prompt
 
 
 async def test_valid_knowledge_search_is_dispatched(
@@ -120,6 +127,7 @@ async def test_invalid_arguments_are_rejected(
         )
 
         assert result["success"] is False
+
         assert result["error"] == (
             "Invalid knowledge search arguments."
         )
@@ -140,6 +148,7 @@ async def test_unknown_tool_is_rejected(
     )
 
     assert result["success"] is False
+
     assert result["error"] == (
         "Unknown or unauthorized AI tool."
     )
