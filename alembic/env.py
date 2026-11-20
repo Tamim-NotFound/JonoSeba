@@ -9,6 +9,7 @@ from app.modules.departments.models import Department
 from app.modules.auth.models import User
 from app.modules.complaints.models import Complaint
 from app.modules.departments import models as department_models  # noqa: F401
+from app.modules.knowledge.models import KnowledgeChunk  # noqa: F401
 
 config = context.config
 
