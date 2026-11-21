@@ -1,10 +1,16 @@
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Link,
   NavLink,
   Route,
   Routes,
   useLocation,
+  useNavigate,
   useParams,
 } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -13,12 +19,14 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Building2,
+  ChevronDown,
   Droplets,
   FileText,
   HeartPulse,
   Landmark,
   Languages,
   LockKeyhole,
+  LogOut,
   Menu,
   MessageCircle,
   Moon,
@@ -26,6 +34,7 @@ import {
   ShieldCheck,
   Sparkles,
   Sun,
+  UserRound,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -38,8 +47,9 @@ import {
   type SiteLanguage,
 } from "./siteContent";
 
+import { useAuth } from "./AuthContext";
 import "./index.css";
-
+import "./dashboard.css";
 type Theme = "light" | "dark";
 
 const serviceIcons: Record<ServiceId, LucideIcon> = {
@@ -94,31 +104,134 @@ function Logo() {
   );
 }
 
-function Layout({ children }: { children: ReactNode }) {
+
+function Layout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const { t } = useTranslation();
   const { lang, copy } = useSiteLanguage();
+
+  const { user, signOut } = useAuth();
+
+  const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  const [theme, setTheme] = useState<Theme>(getSavedTheme);
+  const [theme, setTheme] = useState<Theme>(
+    getSavedTheme,
+  );
+
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  const isLoggedIn = Boolean(user);
+  const isAdmin = user?.role === "admin";
+
+  const dashboardPath = isAdmin
+    ? "/admin"
+    : "/dashboard";
+
+  const dashboardLabel =
+    lang === "bn" ? "ড্যাশবোর্ড" : "Dashboard";
+
+  const logoutLabel =
+    lang === "bn" ? "লগআউট" : "Logout";
+
+  const profileLabel =
+    lang === "bn" ? "প্রোফাইল" : "Profile";
+
+  const initials =
+    user?.full_name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part.charAt(0))
+      .join("")
+      .toUpperCase() || "JS";
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
 
     try {
-      localStorage.setItem("jonoseba-theme", theme);
+      localStorage.setItem(
+        "jonoseba-theme",
+        theme,
+      );
     } catch {
-      // Theme still works when storage is unavailable.
+      // Theme still works if localStorage is unavailable.
     }
   }, [theme]);
 
   useEffect(() => {
     setMenuOpen(false);
+    setProfileOpen(false);
   }, [pathname]);
 
-  const navItems = [
-    { path: "/", label: t("navHome"), end: true },
+  useEffect(() => {
+    function handleOutsideClick(
+      event: PointerEvent,
+    ) {
+      if (
+        profileRef.current &&
+        !profileRef.current.contains(
+          event.target as Node,
+        )
+      ) {
+        setProfileOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        setProfileOpen(false);
+      }
+    }
+
+    document.addEventListener(
+      "pointerdown",
+      handleOutsideClick,
+    );
+
+    document.addEventListener(
+      "keydown",
+      handleEscape,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        handleOutsideClick,
+      );
+
+      document.removeEventListener(
+        "keydown",
+        handleEscape,
+      );
+    };
+  }, []);
+
+  function handleLogout() {
+    setProfileOpen(false);
+    setMenuOpen(false);
+
+    signOut();
+
+    navigate("/login", {
+      replace: true,
+    });
+  }
+
+  const publicNavItems = [
+    {
+      path: "/",
+      label: t("navHome"),
+      end: true,
+    },
     {
       path: "/services",
       label: t("navServices"),
@@ -136,23 +249,101 @@ function Layout({ children }: { children: ReactNode }) {
     },
     {
       path: "/about",
-      label: lang === "bn" ? "সম্পর্কে" : "About",
+      label:
+        lang === "bn"
+          ? "সম্পর্কে"
+          : "About",
       end: true,
     },
   ];
 
+  /*
+   * Guests see the usual public navigation.
+   *
+   * Citizens see the same public links plus Dashboard.
+   *
+   * Admins see only their Admin Dashboard link.
+   */
+  const navItems = isAdmin
+    ? [
+        {
+          path: "/admin",
+          label: dashboardLabel,
+          end: true,
+        },
+      ]
+    : isLoggedIn
+      ? [
+          ...publicNavItems,
+          {
+            path: "/dashboard",
+            label: dashboardLabel,
+            end: false,
+          },
+        ]
+      : publicNavItems;
+
   const activeLanguage: AppLanguage = lang;
 
   return (
-    <div className="app-shell">
+    <div
+      className={
+        isLoggedIn
+          ? "app-shell jd-app"
+          : "app-shell"
+      }
+    >
       <ScrollToTop />
 
-      <header className="header">
-        <div className="container header-inner">
-          <Logo />
+      <header
+        className={
+          isLoggedIn
+            ? "jd-header"
+            : "header"
+        }
+      >
+        <div
+          className={
+            isLoggedIn
+              ? "jd-header-inner"
+              : "container header-inner"
+          }
+        >
+          {isLoggedIn ? (
+            <Link
+              to={dashboardPath}
+              className="jd-brand"
+              aria-label="JonoSeba dashboard"
+              onClick={() => setMenuOpen(false)}
+            >
+              <span className="jd-brand-symbol">
+                <Landmark size={23} />
+              </span>
+
+              <span>
+                <strong>জনসেবা</strong>
+
+                <small>JONOSEBA</small>
+              </span>
+            </Link>
+          ) : (
+            <Logo />
+          )}
 
           <nav
-            className={`navigation ${menuOpen ? "open" : ""}`}
+            className={
+              isLoggedIn
+                ? `jd-nav ${
+                    menuOpen
+                      ? "jd-nav-open"
+                      : ""
+                  }`
+                : `navigation ${
+                    menuOpen
+                      ? "open"
+                      : ""
+                  }`
+            }
             aria-label="Main navigation"
           >
             {navItems.map((item) => (
@@ -160,27 +351,51 @@ function Layout({ children }: { children: ReactNode }) {
                 key={item.path}
                 to={item.path}
                 end={item.end}
-                className={({ isActive }) =>
-                  isActive ? "nav-link active" : "nav-link"
+                onClick={() =>
+                  setMenuOpen(false)
                 }
-                onClick={() => setMenuOpen(false)}
+                className={({ isActive }) => {
+                  if (isLoggedIn) {
+                    return isActive
+                      ? "jd-nav-link jd-nav-active"
+                      : "jd-nav-link";
+                  }
+
+                  return isActive
+                    ? "nav-link active"
+                    : "nav-link";
+                }}
               >
                 {item.label}
               </NavLink>
             ))}
 
-            <Link
-              className="mobile-login"
-              to="/login"
-              onClick={() => setMenuOpen(false)}
-            >
-              {copy.login}
-            </Link>
+            {!isLoggedIn && (
+              <Link
+                className="mobile-login"
+                to="/login"
+                onClick={() =>
+                  setMenuOpen(false)
+                }
+              >
+                {copy.login}
+              </Link>
+            )}
           </nav>
 
-          <div className="header-controls">
+          <div
+            className={
+              isLoggedIn
+                ? "jd-header-actions"
+                : "header-controls"
+            }
+          >
             <div
-              className="language-control"
+              className={
+                isLoggedIn
+                  ? "jd-language"
+                  : "language-control"
+              }
               role="group"
               aria-label={t("language")}
             >
@@ -189,23 +404,47 @@ function Layout({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 className={
-                  activeLanguage === "bn" ? "selected" : ""
+                  activeLanguage === "bn"
+                    ? isLoggedIn
+                      ? "jd-selected"
+                      : "selected"
+                    : ""
                 }
-                aria-pressed={activeLanguage === "bn"}
-                onClick={() => void changeAppLanguage("bn")}
+                aria-pressed={
+                  activeLanguage === "bn"
+                }
+                onClick={() =>
+                  void changeAppLanguage("bn")
+                }
               >
                 বাংলা
               </button>
 
-              <span className="language-separator">/</span>
+              <span
+                className={
+                  isLoggedIn
+                    ? ""
+                    : "language-separator"
+                }
+              >
+                /
+              </span>
 
               <button
                 type="button"
                 className={
-                  activeLanguage === "en" ? "selected" : ""
+                  activeLanguage === "en"
+                    ? isLoggedIn
+                      ? "jd-selected"
+                      : "selected"
+                    : ""
                 }
-                aria-pressed={activeLanguage === "en"}
-                onClick={() => void changeAppLanguage("en")}
+                aria-pressed={
+                  activeLanguage === "en"
+                }
+                onClick={() =>
+                  void changeAppLanguage("en")
+                }
               >
                 EN
               </button>
@@ -213,14 +452,22 @@ function Layout({ children }: { children: ReactNode }) {
 
             <button
               type="button"
-              className="theme-toggle"
+              className={
+                isLoggedIn
+                  ? "jd-icon-btn"
+                  : "theme-toggle"
+              }
               aria-label={copy.theme}
               title={
-                theme === "light" ? copy.dark : copy.light
+                theme === "light"
+                  ? copy.dark
+                  : copy.light
               }
               onClick={() =>
                 setTheme((current) =>
-                  current === "light" ? "dark" : "light"
+                  current === "light"
+                    ? "dark"
+                    : "light",
                 )
               }
             >
@@ -231,19 +478,103 @@ function Layout({ children }: { children: ReactNode }) {
               )}
             </button>
 
-            <Link to="/login" className="header-login">
-              {copy.login}
-              <ArrowUpRight size={16} />
-            </Link>
+            {user ? (
+              <div
+                className="jd-profile-wrap"
+                ref={profileRef}
+              >
+                <button
+                  type="button"
+                  className="jd-profile-trigger"
+                  aria-haspopup="menu"
+                  aria-expanded={profileOpen}
+                  onClick={() =>
+                    setProfileOpen(
+                      (open) => !open,
+                    )
+                  }
+                >
+                  <span className="jd-avatar">
+                    {initials}
+                  </span>
+
+                  <span className="jd-profile-name">
+                    {user.full_name}
+                  </span>
+
+                  <ChevronDown size={16} />
+                </button>
+
+                {profileOpen && (
+                  <div
+                    className="jd-profile-menu"
+                    role="menu"
+                  >
+                    <Link
+                      role="menuitem"
+                      to={dashboardPath}
+                      onClick={() =>
+                        setProfileOpen(false)
+                      }
+                    >
+                      <Landmark size={17} />
+                      {dashboardLabel}
+                    </Link>
+
+                    {!isAdmin && (
+                      <Link
+                        role="menuitem"
+                        to="/dashboard/profile"
+                        onClick={() =>
+                          setProfileOpen(false)
+                        }
+                      >
+                        <UserRound size={17} />
+                        {profileLabel}
+                      </Link>
+                    )}
+
+                    <button
+                      role="menuitem"
+                      type="button"
+                      className="jd-logout"
+                      onClick={handleLogout}
+                    >
+                      <LogOut size={17} />
+                      {logoutLabel}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="header-login"
+              >
+                {copy.login}
+
+                <ArrowUpRight size={16} />
+              </Link>
+            )}
 
             <button
               type="button"
-              className="menu-toggle"
+              className={
+                isLoggedIn
+                  ? "jd-mobile-btn"
+                  : "menu-toggle"
+              }
               aria-label={
-                menuOpen ? copy.closeMenu : copy.openMenu
+                menuOpen
+                  ? copy.closeMenu
+                  : copy.openMenu
               }
               aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((open) => !open)}
+              onClick={() =>
+                setMenuOpen(
+                  (open) => !open,
+                )
+              }
             >
               {menuOpen ? (
                 <X size={22} />
@@ -257,49 +588,78 @@ function Layout({ children }: { children: ReactNode }) {
 
       <main>{children}</main>
 
-      <footer className="footer">
-        <div className="container footer-main">
-          <div className="footer-identity">
-            <Logo />
-            <p>{copy.footerDescription}</p>
+      {isLoggedIn ? (
+        <footer className="jd-footer">
+          © {new Date().getFullYear()} JonoSeba
+          {" · "}
+          {copy.demo}
+        </footer>
+      ) : (
+        <footer className="footer">
+          <div className="container footer-main">
+            <div className="footer-identity">
+              <Logo />
+
+              <p>
+                {copy.footerDescription}
+              </p>
+            </div>
+
+            <div className="footer-links">
+              <h4>
+                {copy.footerExplore}
+              </h4>
+
+              <Link to="/services">
+                {t("navServices")}
+              </Link>
+
+              <Link to="/how-it-works">
+                {t("navHow")}
+              </Link>
+
+              <Link to="/ai-assistant">
+                {t("navAi")}
+              </Link>
+
+              <Link to="/about">
+                {lang === "bn"
+                  ? "আমাদের সম্পর্কে"
+                  : "About us"}
+              </Link>
+            </div>
+
+            <div className="footer-info">
+              <h4>
+                {copy.footerNotice}
+              </h4>
+
+              <p>{copy.disclaimer}</p>
+
+              <span className="footer-demo">
+                <ShieldCheck size={15} />
+                {copy.demo}
+              </span>
+            </div>
           </div>
 
-          <div className="footer-links">
-            <h4>{copy.footerExplore}</h4>
-            <Link to="/services">{t("navServices")}</Link>
-            <Link to="/how-it-works">{t("navHow")}</Link>
-            <Link to="/ai-assistant">{t("navAi")}</Link>
-            <Link to="/about">
+          <div className="container footer-bottom">
+            <span>
+              © {new Date().getFullYear()} JonoSeba.
+            </span>
+
+            <span>
               {lang === "bn"
-                ? "আমাদের সম্পর্কে"
-                : "About us"}
-            </Link>
-          </div>
-
-          <div className="footer-info">
-            <h4>{copy.footerNotice}</h4>
-            <p>{copy.disclaimer}</p>
-            <span className="footer-demo">
-              <ShieldCheck size={15} />
-              {copy.demo}
+                ? "নাগরিক সেবা সহজ করার প্রয়াস"
+                : "Making citizen services simpler"}
             </span>
           </div>
-        </div>
-
-        <div className="container footer-bottom">
-          <span>
-            © {new Date().getFullYear()} JonoSeba.
-          </span>
-          <span>
-            {lang === "bn"
-              ? "নাগরিক সেবা সহজ করার প্রয়াস"
-              : "Making citizen services simpler"}
-          </span>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }
+
 
 /*
  * New homepage illustration.
@@ -950,8 +1310,29 @@ function HowPage() {
   );
 }
 
+
 function AiPage() {
-  const { copy } = useSiteLanguage();
+  const { copy, lang } = useSiteLanguage();
+  const { user } = useAuth();
+
+  const isLoggedIn = Boolean(user);
+  const isAdmin = user?.role === "admin";
+
+  const destination = isLoggedIn
+    ? isAdmin
+      ? "/admin"
+      : "/dashboard"
+    : "/login";
+
+  const buttonText = !isLoggedIn
+    ? copy.login
+    : isAdmin
+      ? lang === "bn"
+        ? "অ্যাডমিন ড্যাশবোর্ড"
+        : "Admin Dashboard"
+      : lang === "bn"
+        ? "ড্যাশবোর্ডে AI চ্যাট খুলুন"
+        : "Open AI Chat in Dashboard";
 
   return (
     <>
@@ -967,15 +1348,34 @@ function AiPage() {
             <span className="ai-page-icon">
               <Sparkles size={30} />
             </span>
-            <h2>{copy.aiComing}</h2>
-            <p>{copy.disclaimer}</p>
+
+            <h2>
+              {isLoggedIn
+                ? lang === "bn"
+                  ? "জনসেবা AI সহকারী"
+                  : "JonoSeba AI Assistant"
+                : copy.aiComing}
+            </h2>
+
+            <p>
+              {isLoggedIn && !isAdmin
+                ? lang === "bn"
+                  ? "আপনি লগইন করা অবস্থায় আছেন। ড্যাশবোর্ডে গিয়ে AI চ্যাট ব্যবহার করতে পারবেন।"
+                  : "You're signed in. Open your dashboard to use the live AI chat."
+                : copy.disclaimer}
+            </p>
 
             <Link
-              to="/login"
+              to={destination}
               className="btn btn-primary"
             >
-              <LockKeyhole size={18} />
-              {copy.login}
+              {isLoggedIn ? (
+                <Sparkles size={18} />
+              ) : (
+                <LockKeyhole size={18} />
+              )}
+
+              {buttonText}
             </Link>
           </div>
 
@@ -984,6 +1384,7 @@ function AiPage() {
               <span className="chat-avatar">
                 <Sparkles size={22} />
               </span>
+
               <div>
                 <strong>JonoSeba AI</strong>
                 <small>{copy.demo}</small>
@@ -1004,6 +1405,7 @@ function AiPage() {
     </>
   );
 }
+
 
 function AboutPage() {
   const { copy } = useSiteLanguage();
