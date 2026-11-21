@@ -12,6 +12,7 @@ import {
   Navigate,
   useLocation,
   useNavigate,
+  useSearchParams,
 } from "react-router-dom";
 
 import { useTranslation } from "react-i18next";
@@ -31,14 +32,14 @@ import {
   Landmark,
   Languages,
   LayoutGrid,
-  Lightbulb,
-  ListFilter,
   LogOut,
   MapPin,
   Menu,
   MessageCircle,
   Moon,
+  RefreshCw,
   Search,
+  Send,
   Settings2,
   ShieldCheck,
   Sparkles,
@@ -52,7 +53,23 @@ import {
 import { changeAppLanguage } from "./i18n";
 import { useAuth } from "./AuthContext";
 
+import {
+  askJonoSeba,
+  type ChatHistoryMessage,
+} from "./api/chat";
+
+import {
+  getActiveDepartments,
+  getMyComplaints,
+  getComplaintById,
+  submitComplaint,
+  type Complaint,
+  type ComplaintStatus,
+  type Department,
+} from "./api/complaints";
+
 import "./dashboard.css";
+import "./workflow.css";
 
 type Language = "bn" | "en";
 type Theme = "light" | "dark";
@@ -66,7 +83,7 @@ type DashboardView =
 
 type ComplaintDraft = {
   title: string;
-  category: string;
+  departmentId: string;
   ward: string;
   location: string;
   description: string;
@@ -74,13 +91,12 @@ type ComplaintDraft = {
 
 const emptyDraft: ComplaintDraft = {
   title: "",
-  category: "",
+  departmentId: "",
   ward: "",
   location: "",
   description: "",
 };
 
-// All dashboard text in Bengali and English.
 const words = {
   en: {
     home: "Home",
@@ -90,97 +106,90 @@ const words = {
     about: "About",
     dashboard: "Dashboard",
     profile: "Profile",
-    editProfile: "Edit profile (coming soon)",
+    editProfile: "Profile settings (coming soon)",
     logout: "Logout",
     menu: "Open menu",
-    theme: "Toggle dark or light mode",
-
+    theme: "Change theme",
     welcome: "Welcome back",
     welcomeText:
-      "Your citizen-service workspace: report civic issues, track their progress, and explore municipal information.",
-
-    demo: "Educational demo — not an official government portal",
+      "Report civic issues, track progress and explore municipal services in one place.",
+    demo:
+      "Educational demo — not an official government portal",
 
     total: "Total complaints",
-    pending: "Pending",
     progress: "In progress",
     resolved: "Resolved",
-    saved: "Saved services",
-    aiRequests: "AI requests",
-    awaiting: "Awaiting API connection",
+    loading: "Loading...",
+    retry: "Try again",
 
     newComplaint: "File new complaint",
-    newDesc: "Describe an issue in your area",
+    newDesc: "Report an issue in your area",
     track: "Track complaint",
-    trackDesc: "Check a complaint's progress",
+    trackDesc: "Check its current status",
     explore: "Explore services",
     exploreDesc: "Browse municipal guidance",
     ask: "Ask AI assistant",
-    askDesc: "Open the chat panel",
+    askDesc: "Chat with JonoSeba",
 
     recent: "Recent complaints",
     viewAll: "View all",
-    noRecords:
-      "Your real complaint history will appear after the authorized complaint API is connected.",
-
+    noRecords: "No complaints submitted yet.",
     tracking: "Complaint tracking",
     trackingEmpty:
-      "No complaint selected yet. Real progress and timestamps will come from the backend.",
-    trackingStages: "Example stages (not live status)",
-    submitted: "Submitted",
-    review: "Under review",
-    processing: "In progress",
-    resolvedStage: "Resolved",
+      "Select a complaint to see its current status.",
 
     shortcuts: "Service shortcuts",
-    shortcutsDesc:
-      "Discover the most-used municipal topics",
-
+    shortcutsDesc: "Explore common municipal topics",
     water: "Water supply",
     lighting: "Street lighting",
     waste: "Waste management",
-    health: "Health and environment",
     birth: "Birth & death registration",
     holding: "Holding tax",
     trade: "Trade license",
 
     chatTitle: "JonoSeba AI Assistant",
-    chatPending: "Live chat connection pending",
+    chatPending: "FastAPI AI chat",
     chatWelcome:
-      "Your AI chat window is ready. Responses will appear here after the Gemini endpoint is connected.",
-    chatInput: "Ask about services or complaints...",
+      "Ask about municipal services in Bangla, English or Banglish.",
+    chatInput: "Type your question...",
     chatSend: "Send message",
-    chatNotSent:
-      "Your message was not sent. The AI backend endpoint must be connected first.",
-    closeChat: "Close AI chat",
-    openChat: "Open AI chat",
-    chatStatus: "Not connected",
+    chatBusy: "Thinking...",
+    closeChat: "Close chat",
+    openChat: "Open chat",
+    chatStatus: "AI service",
 
     complaintPage: "My complaints",
     complaintPageDesc:
-      "Review your submitted municipal complaints once the API is connected.",
-
+      "Your complaints stored in the database.",
     complaintNewTitle: "New complaint",
     complaintNewDesc:
-      "Prepare a complaint draft. Saving a draft does not submit it to the municipality.",
+      "Submit a real complaint to the JonoSeba demo database.",
 
     labelTitle: "Complaint title",
-    labelCategory: "Issue category",
-    labelWard: "Ward / area",
+    labelDepartment: "Responsible department",
+    labelWard: "Ward (optional)",
     labelLocation: "Specific location",
-    labelDescription: "Describe the problem",
-    chooseCategory: "Choose a category",
+    labelDescription: "Describe the issue",
+    chooseDepartment: "Select department",
 
     draftSaved:
-      "Draft saved in this browser session only. No complaint was submitted.",
-    draftClear: "Clear draft",
-    draftSave: "Save local draft",
-    submissionPending:
-      "Submission will be enabled after backend schema integration.",
+      "Draft saved in this browser session. It has NOT been submitted.",
+    draftClear: "Clear form",
+    draftSave: "Save draft",
+    submit: "Submit complaint",
+    submitting: "Submitting...",
+    submitted: "Complaint created successfully!",
+    receipt: "Complaint ID",
+    viewStatus: "Track this complaint",
+
+    noDepartments:
+      "No active departments found. An admin must add an active department before submission.",
+    locationNote:
+      "Ward will be included in the location field; the backend has no separate ward field.",
 
     profileTitle: "Your profile",
     profileDesc:
-      "Information verified using your logged-in account.",
+      "Information from your authenticated account.",
     name: "Full name",
     email: "Email",
     role: "Role",
@@ -188,17 +197,36 @@ const words = {
     active: "Active",
     inactive: "Inactive",
     editPending:
-      "Profile editing needs a backend update endpoint. This page currently displays your real account details only.",
+      "Profile editing needs a backend update endpoint; this view is read-only.",
 
     trackPage: "Track a complaint",
     trackPageDesc:
-      "Live tracking will use your authenticated complaint records.",
-    searchPlaceholder: "Complaint ID or keyword",
-    searchPending:
-      "Search will become available once complaint retrieval is connected.",
+      "Enter the numeric ID of your own complaint.",
+    searchPlaceholder: "Complaint ID (e.g. 12)",
+    find: "Find complaint",
+    invalidId:
+      "Enter a valid positive numeric complaint ID.",
+    notOwned:
+      "This complaint is not available to your account.",
 
     backDashboard: "Back to dashboard",
-    noData: "—",
+    status: "Status",
+    priority: "Priority",
+    department: "Department",
+    location: "Location",
+    created: "Submitted at",
+    updated: "Last updated",
+    description: "Description",
+
+    statuses: {
+      pending: "Pending",
+      in_progress: "In progress",
+      resolved: "Resolved",
+      rejected: "Rejected",
+    },
+
+    noHistory:
+      "This API returns current status and last update, not a status-history timeline.",
   },
 
   bn: {
@@ -209,96 +237,90 @@ const words = {
     about: "সম্পর্কে",
     dashboard: "ড্যাশবোর্ড",
     profile: "প্রোফাইল",
-    editProfile: "প্রোফাইল সম্পাদনা (শিগগিরই)",
+    editProfile: "প্রোফাইল সেটিংস (শিগগিরই)",
     logout: "লগআউট",
     menu: "মেনু খুলুন",
-    theme: "ডার্ক বা লাইট মোড",
-
+    theme: "থিম পরিবর্তন করুন",
     welcome: "স্বাগতম",
     welcomeText:
-      "আপনার নাগরিক সেবার জায়গা—সমস্যার অভিযোগ প্রস্তুত করুন, অগ্রগতি দেখুন এবং পৌরসেবার তথ্য খুঁজুন।",
-
-    demo: "শিক্ষামূলক ডেমো — সরকারি অনুমোদিত পোর্টাল নয়",
+      "এলাকার সমস্যা জানান, অভিযোগের অগ্রগতি দেখুন এবং প্রয়োজনীয় পৌরসেবা সম্পর্কে জানুন।",
+    demo:
+      "শিক্ষামূলক ডেমো — সরকারি অনুমোদিত পোর্টাল নয়",
 
     total: "মোট অভিযোগ",
-    pending: "অপেক্ষমাণ",
     progress: "চলমান",
     resolved: "সমাধান হয়েছে",
-    saved: "সংরক্ষিত সেবা",
-    aiRequests: "AI অনুরোধ",
-    awaiting: "API সংযোগ বাকি",
+    loading: "লোড হচ্ছে...",
+    retry: "আবার চেষ্টা করুন",
 
-    newComplaint: "নতুন অভিযোগ",
-    newDesc: "আপনার এলাকার সমস্যার বিবরণ দিন",
+    newComplaint: "নতুন অভিযোগ করুন",
+    newDesc: "এলাকার সমস্যা জানান",
     track: "অভিযোগ ট্র্যাক করুন",
-    trackDesc: "অভিযোগের অগ্রগতি দেখুন",
+    trackDesc: "বর্তমান অবস্থা দেখুন",
     explore: "সেবা খুঁজুন",
     exploreDesc: "পৌরসেবার তথ্য দেখুন",
     ask: "AI সহায়তা নিন",
-    askDesc: "চ্যাট প্যানেল খুলুন",
+    askDesc: "জনসেবা AI-এর সঙ্গে কথা বলুন",
 
     recent: "সাম্প্রতিক অভিযোগ",
     viewAll: "সব দেখুন",
-    noRecords:
-      "নিরাপদ complaint API সংযুক্ত হলে আপনার প্রকৃত অভিযোগের তালিকা এখানে দেখা যাবে।",
-
+    noRecords: "এখনো কোনো অভিযোগ জমা নেই।",
     tracking: "অভিযোগের অগ্রগতি",
     trackingEmpty:
-      "এখনো কোনো অভিযোগ নির্বাচন করা হয়নি। প্রকৃত অগ্রগতি ও সময় backend থেকে দেখানো হবে।",
-    trackingStages: "সম্ভাব্য ধাপ (বর্তমান অবস্থা নয়)",
-    submitted: "জমা হয়েছে",
-    review: "যাচাই চলছে",
-    processing: "কাজ চলছে",
-    resolvedStage: "সমাধান",
+      "বর্তমান অবস্থা জানতে একটি অভিযোগ নির্বাচন করুন।",
 
     shortcuts: "প্রয়োজনীয় সেবা",
     shortcutsDesc: "জনপ্রিয় পৌরসেবার তথ্য দেখুন",
-
     water: "পানি সরবরাহ",
     lighting: "সড়কবাতি",
     waste: "বর্জ্য ব্যবস্থাপনা",
-    health: "স্বাস্থ্য ও পরিবেশ",
     birth: "জন্ম ও মৃত্যু নিবন্ধন",
     holding: "হোল্ডিং ট্যাক্স",
     trade: "ট্রেড লাইসেন্স",
 
     chatTitle: "জনসেবা AI সহকারী",
-    chatPending: "লাইভ চ্যাট সংযোগ বাকি",
+    chatPending: "FastAPI AI চ্যাট",
     chatWelcome:
-      "AI চ্যাটের ডিজাইন প্রস্তুত। Gemini endpoint যুক্ত হওয়ার পর এখানেই প্রকৃত উত্তর আসবে।",
-    chatInput: "পৌরসেবা বা অভিযোগ নিয়ে প্রশ্ন লিখুন...",
+      "বাংলা, ইংরেজি বা বাংলিশে পৌরসেবা সম্পর্কে জিজ্ঞাসা করুন।",
+    chatInput: "আপনার প্রশ্ন লিখুন...",
     chatSend: "মেসেজ পাঠান",
-    chatNotSent:
-      "আপনার মেসেজ পাঠানো হয়নি। আগে AI backend endpoint সংযুক্ত করতে হবে।",
-    closeChat: "AI চ্যাট বন্ধ করুন",
-    openChat: "AI চ্যাট খুলুন",
-    chatStatus: "সংযোগ নেই",
+    chatBusy: "উত্তর তৈরি হচ্ছে...",
+    closeChat: "চ্যাট বন্ধ করুন",
+    openChat: "চ্যাট খুলুন",
+    chatStatus: "AI সেবা",
 
     complaintPage: "আমার অভিযোগসমূহ",
     complaintPageDesc:
-      "Backend সংযুক্ত হলে আপনার নিজের জমা দেওয়া অভিযোগ এখানে দেখা যাবে।",
-
+      "ডেটাবেজে সংরক্ষিত আপনার অভিযোগের তালিকা।",
     complaintNewTitle: "নতুন অভিযোগ",
     complaintNewDesc:
-      "অভিযোগের খসড়া তৈরি করুন। খসড়া সংরক্ষণ মানে পৌরসভায় অভিযোগ জমা নয়।",
+      "জনসেবা ডেমো ডেটাবেজে প্রকৃত অভিযোগ জমা দিন।",
 
     labelTitle: "অভিযোগের শিরোনাম",
-    labelCategory: "সমস্যার ধরন",
-    labelWard: "ওয়ার্ড / এলাকা",
+    labelDepartment: "দায়িত্বপ্রাপ্ত বিভাগ",
+    labelWard: "ওয়ার্ড (ঐচ্ছিক)",
     labelLocation: "সুনির্দিষ্ট স্থান",
     labelDescription: "সমস্যার বিবরণ",
-    chooseCategory: "ধরন নির্বাচন করুন",
+    chooseDepartment: "বিভাগ নির্বাচন করুন",
 
     draftSaved:
-      "এই ব্রাউজার সেশনে খসড়া সংরক্ষিত হয়েছে। কোনো অভিযোগ জমা হয়নি।",
-    draftClear: "খসড়া মুছুন",
+      "এই ব্রাউজার সেশনে খসড়া সংরক্ষিত হয়েছে। অভিযোগ জমা হয়নি।",
+    draftClear: "ফর্ম পরিষ্কার করুন",
     draftSave: "খসড়া সংরক্ষণ",
-    submissionPending:
-      "Backend schema যুক্ত হলে অভিযোগ জমা দেওয়ার সুবিধা চালু হবে।",
+    submit: "অভিযোগ জমা দিন",
+    submitting: "জমা হচ্ছে...",
+    submitted: "অভিযোগ সফলভাবে জমা হয়েছে!",
+    receipt: "অভিযোগ নম্বর",
+    viewStatus: "অভিযোগটি ট্র্যাক করুন",
+
+    noDepartments:
+      "কোনো সক্রিয় বিভাগ নেই। অভিযোগ পাঠানোর আগে অ্যাডমিনকে বিভাগ যোগ করতে হবে।",
+    locationNote:
+      "Backend-এ আলাদা ওয়ার্ড নেই, তাই ওয়ার্ড নম্বর location-এর সঙ্গে সংরক্ষিত হবে।",
 
     profileTitle: "আপনার প্রোফাইল",
     profileDesc:
-      "লগইন করা অ্যাকাউন্ট থেকে পাওয়া প্রকৃত তথ্য।",
+      "লগইন করা অ্যাকাউন্টের প্রকৃত তথ্য।",
     name: "পুরো নাম",
     email: "ইমেইল",
     role: "ভূমিকা",
@@ -306,19 +328,52 @@ const words = {
     active: "সক্রিয়",
     inactive: "নিষ্ক্রিয়",
     editPending:
-      "প্রোফাইল পরিবর্তনের জন্য backend update endpoint দরকার। আপাতত এখানে আপনার প্রকৃত তথ্য দেখানো হচ্ছে।",
+      "প্রোফাইল পরিবর্তনের backend endpoint এখনো নেই/যাচাই হয়নি; এই পেজ read-only।",
 
     trackPage: "অভিযোগ ট্র্যাক করুন",
     trackPageDesc:
-      "লগইন করা ব্যবহারকারীর প্রকৃত অভিযোগ থেকে অগ্রগতি দেখানো হবে।",
-    searchPlaceholder: "অভিযোগের ID বা শব্দ",
-    searchPending:
-      "Complaint retrieval সংযুক্ত হলে সার্চ চালু হবে।",
+      "নিজের অভিযোগের সংখ্যাসূচক ID লিখুন।",
+    searchPlaceholder: "অভিযোগের ID (যেমন 12)",
+    find: "খুঁজুন",
+    invalidId:
+      "সঠিক সংখ্যাসূচক অভিযোগ ID লিখুন।",
+    notOwned:
+      "এই অভিযোগটি আপনার অ্যাকাউন্টে পাওয়া যায়নি।",
 
     backDashboard: "ড্যাশবোর্ডে ফিরুন",
-    noData: "—",
+    status: "অবস্থা",
+    priority: "অগ্রাধিকার",
+    department: "বিভাগ",
+    location: "স্থান",
+    created: "জমার সময়",
+    updated: "সর্বশেষ পরিবর্তন",
+    description: "বিবরণ",
+
+    statuses: {
+      pending: "অপেক্ষমাণ",
+      in_progress: "চলমান",
+      resolved: "সমাধান হয়েছে",
+      rejected: "বাতিল",
+    },
+
+    noHistory:
+      "এই API শুধু বর্তমান অবস্থা ও সর্বশেষ পরিবর্তন দেয়; পূর্ণ ইতিহাস দেয় না।",
   },
 } as const;
+
+function useLanguage() {
+  const { i18n } = useTranslation();
+
+  const lang: Language =
+    i18n.resolvedLanguage === "en"
+      ? "en"
+      : "bn";
+
+  return {
+    lang,
+    copy: words[lang],
+  };
+}
 
 function savedTheme(): Theme {
   try {
@@ -330,20 +385,100 @@ function savedTheme(): Theme {
   }
 }
 
-function useLanguage() {
-  const { i18n } = useTranslation();
+function friendlyError(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "An unexpected error occurred.";
+}
 
-  const lang: Language =
-    i18n.resolvedLanguage === "en" ? "en" : "bn";
+function readableDate(
+  raw: string,
+  lang: Language,
+): string {
+  const date = new Date(raw);
+
+  return Number.isNaN(date.getTime())
+    ? raw
+    : date.toLocaleString(
+        lang === "bn" ? "bn-BD" : "en-GB",
+      );
+}
+
+function useComplaintRecords(
+  userId: number | undefined,
+) {
+  const [items, setItems] = useState<Complaint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!userId) {
+      return;
+    }
+
+    getMyComplaints()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        if (!Array.isArray(result)) {
+          throw new Error(
+            "Unexpected complaint list response.",
+          );
+        }
+
+        // The backend must also enforce citizen ownership.
+        setItems(
+          result
+            .filter(
+              (item) => item.citizen_id === userId,
+            )
+            .sort((a, b) =>
+              b.created_at.localeCompare(a.created_at),
+            ),
+        );
+
+        setError("");
+      })
+      .catch((reason: unknown) => {
+        if (active) {
+          setError(friendlyError(reason));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [userId, revision]);
 
   return {
-    lang,
-    copy: words[lang],
+    items,
+    loading,
+    error,
+    refresh: () => {
+      setLoading(true);
+      setRevision((n) => n + 1);
+    },
   };
 }
 
 const quickServices: {
-  key: "water" | "lighting" | "waste" | "birth" | "holding" | "trade";
+  key:
+    | "water"
+    | "lighting"
+    | "waste"
+    | "birth"
+    | "holding"
+    | "trade";
   route: string;
   Icon: LucideIcon;
 }[] = [
@@ -355,7 +490,7 @@ const quickServices: {
   {
     key: "lighting",
     route: "/services",
-    Icon: Lightbulb,
+    Icon: Sparkles,
   },
   {
     key: "waste",
@@ -394,18 +529,63 @@ function DashboardSkyline() {
       />
 
       <g fill="#4dbfb3" opacity=".36">
-        <rect x="65" y="83" width="53" height="95" rx="3" />
-        <rect x="131" y="58" width="41" height="120" rx="3" />
-        <rect x="190" y="99" width="63" height="79" rx="3" />
-        <rect x="476" y="76" width="56" height="102" rx="3" />
-        <rect x="543" y="54" width="48" height="124" rx="3" />
-        <rect x="605" y="92" width="47" height="86" rx="3" />
+        <rect
+          x="65"
+          y="83"
+          width="53"
+          height="95"
+          rx="3"
+        />
+        <rect
+          x="131"
+          y="58"
+          width="41"
+          height="120"
+          rx="3"
+        />
+        <rect
+          x="190"
+          y="99"
+          width="63"
+          height="79"
+          rx="3"
+        />
+        <rect
+          x="476"
+          y="76"
+          width="56"
+          height="102"
+          rx="3"
+        />
+        <rect
+          x="543"
+          y="54"
+          width="48"
+          height="124"
+          rx="3"
+        />
+        <rect
+          x="605"
+          y="92"
+          width="47"
+          height="86"
+          rx="3"
+        />
       </g>
 
       <g fill="#eafcf7" opacity=".7">
         {[
-          84, 104, 147, 210, 229,
-          492, 513, 558, 577, 622, 639,
+          84,
+          104,
+          147,
+          210,
+          229,
+          492,
+          513,
+          558,
+          577,
+          622,
+          639,
         ].map((x) => (
           <rect
             key={x}
@@ -476,7 +656,6 @@ function DashboardSkyline() {
           strokeWidth="3"
         />
 
-        {/* Bangladesh national flag: green field and red circle */}
         <rect
           x="380"
           y="8"
@@ -497,15 +676,17 @@ function DashboardSkyline() {
           y="103"
           fontSize="12"
           textAnchor="middle"
+          textLength="170"
+          lengthAdjust="spacingAndGlyphs"
           fill="#07675f"
           fontWeight="bold"
         >
-        
-          
-          আপনার{" "}
+          {"আপনার "}
           <tspan fill="#DC2626">শহর</tspan>
           {", আপনার "}
           <tspan fill="#DC2626">সেবা</tspan>
+          {", আপনার "}
+          <tspan fill="#DC2626">হাতেই</tspan>
         </text>
       </g>
 
@@ -530,20 +711,29 @@ function PageShell({
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [theme, setTheme] = useState<Theme>(savedTheme);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [theme, setTheme] =
+    useState<Theme>(savedTheme);
 
-  const profileRef = useRef<HTMLDivElement>(null);
+  const [profileOpen, setProfileOpen] =
+    useState(false);
+
+  const [mobileOpen, setMobileOpen] =
+    useState(false);
+
+  const profileRef =
+    useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
 
     try {
-      localStorage.setItem("jonoseba-theme", theme);
+      localStorage.setItem(
+        "jonoseba-theme",
+        theme,
+      );
     } catch {
-      // Theme continues to work without local storage.
+      // Theme works without storage.
     }
   }, [theme]);
 
@@ -554,50 +744,45 @@ function PageShell({
   }, [location.pathname]);
 
   useEffect(() => {
-    function handlePointerDown(event: PointerEvent) {
+    const outside = (event: PointerEvent) => {
       if (
         profileRef.current &&
         !profileRef.current.contains(
-          event.target as Node
+          event.target as Node,
         )
       ) {
         setProfileOpen(false);
       }
-    }
+    };
 
-    function handleKeyDown(event: KeyboardEvent) {
+    const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setProfileOpen(false);
       }
-    }
+    };
 
     document.addEventListener(
       "pointerdown",
-      handlePointerDown
+      outside,
     );
 
     document.addEventListener(
       "keydown",
-      handleKeyDown
+      escape,
     );
 
     return () => {
       document.removeEventListener(
         "pointerdown",
-        handlePointerDown
+        outside,
       );
 
       document.removeEventListener(
         "keydown",
-        handleKeyDown
+        escape,
       );
     };
   }, []);
-
-  function logout() {
-    signOut();
-    navigate("/login", { replace: true });
-  }
 
   const nav = [
     {
@@ -632,7 +817,7 @@ function PageShell({
       .trim()
       .split(/\s+/)
       .slice(0, 2)
-      .map((part) => part[0])
+      .map((p) => p[0])
       .join("")
       .toUpperCase() || "JS";
 
@@ -695,7 +880,9 @@ function PageShell({
               <button
                 type="button"
                 className={
-                  lang === "bn" ? "jd-selected" : ""
+                  lang === "bn"
+                    ? "jd-selected"
+                    : ""
                 }
                 onClick={() =>
                   void changeAppLanguage("bn")
@@ -710,7 +897,9 @@ function PageShell({
               <button
                 type="button"
                 className={
-                  lang === "en" ? "jd-selected" : ""
+                  lang === "en"
+                    ? "jd-selected"
+                    : ""
                 }
                 onClick={() =>
                   void changeAppLanguage("en")
@@ -725,12 +914,11 @@ function PageShell({
               className="jd-icon-btn"
               type="button"
               aria-label={copy.theme}
-              title={copy.theme}
               onClick={() =>
-                setTheme((previous) =>
-                  previous === "light"
-                    ? "dark"
-                    : "light"
+                setTheme((value) =>
+                  value === "dark"
+                    ? "light"
+                    : "dark"
                 )
               }
             >
@@ -749,9 +937,10 @@ function PageShell({
                 className="jd-profile-trigger"
                 type="button"
                 aria-expanded={profileOpen}
-                aria-haspopup="menu"
                 onClick={() =>
-                  setProfileOpen((open) => !open)
+                  setProfileOpen(
+                    (open) => !open,
+                  )
                 }
               >
                 <span className="jd-avatar">
@@ -766,31 +955,27 @@ function PageShell({
               </button>
 
               {profileOpen && (
-                <div
-                  className="jd-profile-menu"
-                  role="menu"
-                >
-                  <Link
-                    role="menuitem"
-                    to="/dashboard/profile"
-                  >
+                <div className="jd-profile-menu">
+                  <Link to="/dashboard/profile">
                     <UserRound size={17} />
                     {copy.profile}
                   </Link>
 
-                  <Link
-                    role="menuitem"
-                    to="/dashboard/profile"
-                  >
+                  <Link to="/dashboard/profile">
                     <Settings2 size={17} />
                     {copy.editProfile}
                   </Link>
 
                   <button
-                    role="menuitem"
-                    type="button"
-                    onClick={logout}
                     className="jd-logout"
+                    type="button"
+                    onClick={() => {
+                      signOut();
+
+                      navigate("/login", {
+                        replace: true,
+                      });
+                    }}
                   >
                     <LogOut size={17} />
                     {copy.logout}
@@ -805,7 +990,9 @@ function PageShell({
               aria-label={copy.menu}
               aria-expanded={mobileOpen}
               onClick={() =>
-                setMobileOpen((value) => !value)
+                setMobileOpen(
+                  (open) => !open,
+                )
               }
             >
               {mobileOpen ? (
@@ -823,38 +1010,134 @@ function PageShell({
       </main>
 
       <footer className="jd-footer">
-        © {new Date().getFullYear()} JonoSeba · {copy.demo}
+        © {new Date().getFullYear()} JonoSeba ·{" "}
+        {copy.demo}
       </footer>
     </div>
   );
 }
 
-function Statistic({
-  label,
-  Icon,
-  type,
+function StatusBadge({
+  status,
 }: {
-  label: string;
-  Icon: LucideIcon;
-  type: string;
+  status: ComplaintStatus;
 }) {
   const { copy } = useLanguage();
 
   return (
-    <div className={`jd-stat jd-stat-${type}`}>
-      <span className="jd-stat-icon">
-        <Icon size={22} />
-      </span>
+    <span
+      className={`jd-status jd-status-${status}`}
+    >
+      {copy.statuses[status]}
+    </span>
+  );
+}
 
-      <div>
-        <span className="jd-stat-label">
-          {label}
-        </span>
+function ComplaintDetails({
+  complaint,
+  departments,
+}: {
+  complaint: Complaint;
+  departments: Department[];
+}) {
+  const { copy, lang } = useLanguage();
 
-        <strong>{copy.noData}</strong>
+  const department = departments.find(
+    (d) => d.id === complaint.department_id,
+  );
 
-        <small>{copy.awaiting}</small>
-      </div>
+  const rows: {
+    label: string;
+    value: ReactNode;
+  }[] = [
+    {
+      label: copy.status,
+      value: (
+        <StatusBadge status={complaint.status} />
+      ),
+    },
+    {
+      label: copy.department,
+      value:
+        department?.name ??
+        `#${complaint.department_id}`,
+    },
+    {
+      label: copy.priority,
+      value: complaint.priority,
+    },
+    {
+      label: copy.location,
+      value: complaint.location,
+    },
+    {
+      label: copy.created,
+      value: readableDate(
+        complaint.created_at,
+        lang,
+      ),
+    },
+    {
+      label: copy.updated,
+      value: readableDate(
+        complaint.updated_at,
+        lang,
+      ),
+    },
+    {
+      label: copy.description,
+      value: complaint.description,
+    },
+  ];
+
+  return (
+    <div className="jd-record-detail">
+      <h3>
+        #{complaint.id} — {complaint.title}
+      </h3>
+
+      <dl>
+        {rows.map((row) => (
+          <div key={row.label}>
+            <dt>{row.label}</dt>
+            <dd>{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <p className="jd-muted">
+        {copy.noHistory}
+      </p>
+    </div>
+  );
+}
+
+function ErrorState({
+  error,
+  retry,
+}: {
+  error: string;
+  retry?: () => void;
+}) {
+  const { copy } = useLanguage();
+
+  return (
+    <div
+      className="jd-feedback jd-feedback-error"
+      role="alert"
+    >
+      <p>{error}</p>
+
+      {retry && (
+        <button
+          type="button"
+          className="jd-secondary-btn"
+          onClick={retry}
+        >
+          <RefreshCw size={15} />
+          {copy.retry}
+        </button>
+      )}
     </div>
   );
 }
@@ -874,7 +1157,7 @@ function ActionTile({
   tone: string;
   onClick?: () => void;
 }) {
-  const contents = (
+  const content = (
     <>
       <span className="jd-action-icon">
         <Icon size={26} />
@@ -889,26 +1172,23 @@ function ActionTile({
     </>
   );
 
-  const className = `jd-action jd-action-${tone}`;
+  const className =
+    `jd-action jd-action-${tone}`;
 
-  if (to) {
-    return (
-      <Link
-        to={to}
-        className={className}
-      >
-        {contents}
-      </Link>
-    );
-  }
-
-  return (
+  return to ? (
+    <Link
+      to={to}
+      className={className}
+    >
+      {content}
+    </Link>
+  ) : (
     <button
       type="button"
       className={className}
       onClick={onClick}
     >
-      {contents}
+      {content}
     </button>
   );
 }
@@ -921,20 +1201,61 @@ function ChatPanel({
   const { copy } = useLanguage();
 
   const [question, setQuestion] = useState("");
-  const [notice, setNotice] = useState(false);
 
-  function handleSend(
-    event: FormEvent<HTMLFormElement>
+  const [messages, setMessages] = useState<
+    ChatHistoryMessage[]
+  >([]);
+
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const bottom = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottom.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [messages, busy]);
+
+  async function handleSend(
+    event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
-    if (!question.trim()) {
+    const message = question.trim();
+
+    if (!message || busy) {
       return;
     }
 
-    // The AI API has not been connected yet.
-    // Do not pretend that a message was sent.
-    setNotice(true);
+    setBusy(true);
+    setError("");
+
+    try {
+      const answer = await askJonoSeba(
+        message,
+        messages.slice(-20),
+      );
+
+      setMessages((previous) => [
+        ...previous,
+        {
+          role: "user",
+          content: message,
+        },
+        {
+          role: "model",
+          content: answer.reply,
+        },
+      ]);
+
+      setQuestion("");
+    } catch (reason) {
+      setError(friendlyError(reason));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -951,7 +1272,7 @@ function ChatPanel({
           <strong>{copy.chatTitle}</strong>
 
           <small>
-            <span className="jd-offline-dot" />
+            <span className="jd-online-dot" />
             {copy.chatPending}
           </small>
         </div>
@@ -966,31 +1287,55 @@ function ChatPanel({
         </button>
       </div>
 
-      <div className="jd-chat-body">
-        <div className="jd-chat-illustration">
-          <Bot size={35} />
-        </div>
+      <div
+        className="jd-chat-body jd-chat-body-live"
+        aria-live="polite"
+      >
+        {messages.length === 0 && (
+          <div className="jd-chat-start">
+            <span className="jd-chat-illustration">
+              <Bot size={35} />
+            </span>
 
-        <h3>{copy.chatTitle}</h3>
-        <p>{copy.chatWelcome}</p>
+            <h3>{copy.chatTitle}</h3>
+            <p>{copy.chatWelcome}</p>
+          </div>
+        )}
 
-        <span className="jd-chat-state">
-          {copy.chatStatus}
-        </span>
-
-        {notice && (
-          <p
-            className="jd-chat-notice"
-            role="alert"
+        {messages.map((m, index) => (
+          <div
+            key={index}
+            className={`jd-chat-bubble ${
+              m.role === "user"
+                ? "jd-chat-bubble-user"
+                : "jd-chat-bubble-model"
+            }`}
           >
-            {copy.chatNotSent}
+            {m.content}
+          </div>
+        ))}
+
+        {busy && (
+          <p
+            className="jd-muted"
+            role="status"
+          >
+            {copy.chatBusy}
           </p>
         )}
+
+        {error && (
+          <ErrorState error={error} />
+        )}
+
+        <div ref={bottom} />
       </div>
 
       <form
         className="jd-chat-compose"
-        onSubmit={handleSend}
+        onSubmit={(event) =>
+          void handleSend(event)
+        }
       >
         <label
           htmlFor="jd-chat-question"
@@ -1003,20 +1348,19 @@ function ChatPanel({
           id="jd-chat-question"
           rows={2}
           value={question}
-          maxLength={2000}
+          maxLength={5000}
           placeholder={copy.chatInput}
-          onChange={(event) => {
-            setQuestion(event.target.value);
-            setNotice(false);
-          }}
+          onChange={(event) =>
+            setQuestion(event.target.value)
+          }
         />
 
         <button
           type="submit"
           aria-label={copy.chatSend}
-          title={copy.chatSend}
+          disabled={busy || !question.trim()}
         >
-          <ArrowRight size={20} />
+          <Send size={20} />
         </button>
       </form>
     </aside>
@@ -1025,41 +1369,45 @@ function ChatPanel({
 
 function HomeDashboard() {
   const { user } = useAuth();
-  const { copy } = useLanguage();
+  const { copy, lang } = useLanguage();
+
+  const {
+    items,
+    loading,
+    error,
+    refresh,
+  } = useComplaintRecords(user?.id);
 
   const [chatOpen, setChatOpen] = useState(
     () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(min-width: 961px)").matches
+      window.matchMedia(
+        "(min-width: 961px)",
+      ).matches,
   );
 
-  const stats: {
-    label: string;
-    Icon: LucideIcon;
-    type: string;
-  }[] = [
+  const stats = [
     {
       label: copy.total,
+      value: items.length,
       Icon: ClipboardList,
       type: "teal",
     },
     {
       label: copy.progress,
+      value: items.filter(
+        (r) => r.status === "in_progress",
+      ).length,
       Icon: Search,
       type: "blue",
     },
     {
       label: copy.resolved,
+      value: items.filter(
+        (r) => r.status === "resolved",
+      ).length,
       Icon: CheckCircle2,
       type: "green",
     },
-  ];
-
-  const steps = [
-    copy.submitted,
-    copy.review,
-    copy.processing,
-    copy.resolvedStage,
   ];
 
   return (
@@ -1071,8 +1419,9 @@ function HomeDashboard() {
           </span>
 
           <h1>
-            {copy.welcome}, {user?.full_name}!{" "}
-            <span aria-hidden="true"></span>
+            {copy.welcome},{" "}
+            {user?.full_name}!{" "}
+            <span aria-hidden="true">👋</span>
           </h1>
 
           <p>{copy.welcomeText}</p>
@@ -1083,25 +1432,50 @@ function HomeDashboard() {
 
       <div
         className={`jd-workspace ${
-          chatOpen ? "jd-workspace-chat" : ""
+          chatOpen
+            ? "jd-workspace-chat"
+            : ""
         }`}
       >
         <div className="jd-workspace-main">
           <section
-            className="jd-stats"
+            className="jd-stats jd-stats-three"
             aria-label="Complaint statistics"
-            style={{
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(min(100%, 185px), 1fr))",
-            }}
           >
             {stats.map((stat) => (
-              <Statistic
+              <div
                 key={stat.type}
-                {...stat}
-              />
+                className={`jd-stat jd-stat-${stat.type}`}
+              >
+                <span className="jd-stat-icon">
+                  <stat.Icon size={22} />
+                </span>
+
+                <div>
+                  <span className="jd-stat-label">
+                    {stat.label}
+                  </span>
+
+                  <strong>
+                    {loading || error
+                      ? "—"
+                      : stat.value}
+                  </strong>
+
+                  {loading && (
+                    <small>{copy.loading}</small>
+                  )}
+                </div>
+              </div>
             ))}
           </section>
+
+          {error && (
+            <ErrorState
+              error={error}
+              retry={refresh}
+            />
+          )}
 
           <section
             className="jd-actions"
@@ -1154,10 +1528,43 @@ function HomeDashboard() {
                 </Link>
               </div>
 
-              <div className="jd-empty-records">
-                <ClipboardList size={31} />
-                <p>{copy.noRecords}</p>
-              </div>
+              {loading ? (
+                <p className="jd-muted">
+                  {copy.loading}
+                </p>
+              ) : items.length ? (
+                <div className="jd-record-list">
+                  {items.slice(0, 4).map((item) => (
+                    <Link
+                      key={item.id}
+                      to={`/dashboard/complaints/track?id=${item.id}`}
+                      className="jd-record-row"
+                    >
+                      <div>
+                        <strong>
+                          #{item.id} · {item.title}
+                        </strong>
+
+                        <small>
+                          {readableDate(
+                            item.created_at,
+                            lang,
+                          )}
+                        </small>
+                      </div>
+
+                      <StatusBadge
+                        status={item.status}
+                      />
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="jd-empty-records">
+                  <ClipboardList size={31} />
+                  <p>{copy.noRecords}</p>
+                </div>
+              )}
             </section>
 
             <section className="jd-card jd-tracking">
@@ -1173,22 +1580,36 @@ function HomeDashboard() {
                 </Link>
               </div>
 
-              <p className="jd-muted">
-                {copy.trackingEmpty}
-              </p>
+              {items[0] ? (
+                <div className="jd-record-detail">
+                  <h3>
+                    #{items[0].id} —{" "}
+                    {items[0].title}
+                  </h3>
 
-              <span className="jd-section-note">
-                {copy.trackingStages}
-              </span>
+                  <p>
+                    <StatusBadge
+                      status={items[0].status}
+                    />
+                  </p>
 
-              <ol className="jd-timeline">
-                {steps.map((step) => (
-                  <li key={step}>
-                    <span className="jd-timeline-dot" />
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
+                  <p className="jd-muted">
+                    {copy.updated}:{" "}
+                    {readableDate(
+                      items[0].updated_at,
+                      lang,
+                    )}
+                  </p>
+
+                  <p className="jd-muted">
+                    {copy.noHistory}
+                  </p>
+                </div>
+              ) : (
+                <p className="jd-muted">
+                  {copy.trackingEmpty}
+                </p>
+              )}
             </section>
           </div>
 
@@ -1215,8 +1636,8 @@ function HomeDashboard() {
               {quickServices.map((service) => (
                 <Link
                   key={service.key}
-                  to={service.route}
                   className="jd-service-link"
+                  to={service.route}
                 >
                   <service.Icon size={29} />
 
@@ -1233,7 +1654,9 @@ function HomeDashboard() {
 
         {chatOpen && (
           <ChatPanel
-            onClose={() => setChatOpen(false)}
+            onClose={() =>
+              setChatOpen(false)
+            }
           />
         )}
       </div>
@@ -1241,14 +1664,16 @@ function HomeDashboard() {
       <button
         className="jd-chat-fab"
         type="button"
+        aria-expanded={chatOpen}
         aria-label={
           chatOpen
             ? copy.closeChat
             : copy.openChat
         }
-        aria-expanded={chatOpen}
         onClick={() =>
-          setChatOpen((current) => !current)
+          setChatOpen(
+            (open) => !open,
+          )
         }
       >
         {chatOpen ? (
@@ -1275,8 +1700,8 @@ function SectionPage({
   return (
     <div className="jd-section-page">
       <Link
-        to="/dashboard"
         className="jd-back"
+        to="/dashboard"
       >
         <ArrowLeft size={17} />
         {copy.backDashboard}
@@ -1294,110 +1719,226 @@ function SectionPage({
 
 function NewComplaintPage() {
   const { user } = useAuth();
-  const { lang, copy } = useLanguage();
+  const { copy, lang } = useLanguage();
 
   const storageKey =
     `jonoseba-complaint-draft-${user?.id ?? "guest"}`;
 
-  const [draft, setDraft] = useState<ComplaintDraft>(
-    () => {
-      try {
-        const stored =
-          sessionStorage.getItem(storageKey);
+  const [draft, setDraft] = useState<
+    ComplaintDraft
+  >(() => {
+    try {
+      const value: unknown = JSON.parse(
+        sessionStorage.getItem(storageKey) ||
+          "null",
+      );
 
-        if (stored) {
-          const value: unknown = JSON.parse(stored);
+      if (
+        value &&
+        typeof value === "object"
+      ) {
+        const saved =
+          value as Record<string, unknown>;
 
-          if (
-            value &&
-            typeof value === "object"
-          ) {
-            const data =
-              value as Record<string, unknown>;
-
-            const keys = [
-              "title",
-              "category",
-              "ward",
-              "location",
-              "description",
-            ];
-
-            if (
-              keys.every(
-                (key) =>
-                  typeof data[key] === "string"
-              )
-            ) {
-              return {
-                title: data.title as string,
-                category: data.category as string,
-                ward: data.ward as string,
-                location: data.location as string,
-                description: data.description as string,
-              };
-            }
-          }
-        }
-      } catch {
-        // Ignore unavailable or invalid browser storage.
+        return {
+          title:
+            typeof saved.title === "string"
+              ? saved.title
+              : "",
+          departmentId:
+            typeof saved.departmentId ===
+            "string"
+              ? saved.departmentId
+              : "",
+          ward:
+            typeof saved.ward === "string"
+              ? saved.ward
+              : "",
+          location:
+            typeof saved.location === "string"
+              ? saved.location
+              : "",
+          description:
+            typeof saved.description ===
+            "string"
+              ? saved.description
+              : "",
+        };
       }
-
-      return emptyDraft;
+    } catch {
+      // Invalid local draft.
     }
-  );
 
-  const [message, setMessage] = useState("");
+    return emptyDraft;
+  });
 
-  const categories = [
-    copy.water,
-    copy.lighting,
-    copy.waste,
-    copy.health,
-    copy.holding,
-  ];
+  const [departments, setDepartments] =
+    useState<Department[]>([]);
+
+  const [departmentLoading, setDepartmentLoading] =
+    useState(true);
+
+  const [departmentError, setDepartmentError] =
+    useState("");
+
+  const [revision, setRevision] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState("");
+
+  const [receipt, setReceipt] =
+    useState<Complaint | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    getActiveDepartments()
+      .then((all) => {
+        if (!active) {
+          return;
+        }
+
+        if (!Array.isArray(all)) {
+          throw new Error(
+            "Unexpected department response.",
+          );
+        }
+
+        setDepartments(
+          all.filter(
+            (department) =>
+              department.is_active,
+          ),
+        );
+
+        setDepartmentError("");
+      })
+      .catch((reason: unknown) => {
+        if (active) {
+          setDepartmentError(
+            friendlyError(reason),
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setDepartmentLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [revision]);
 
   function setField(
-    key: keyof ComplaintDraft,
-    value: string
+    field: keyof ComplaintDraft,
+    value: string,
   ) {
     setDraft((current) => ({
       ...current,
-      [key]: value,
+      [field]: value,
     }));
 
-    setMessage("");
-  }
-
-  function save(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
-
-    try {
-      sessionStorage.setItem(
-        storageKey,
-        JSON.stringify(draft)
-      );
-
-      setMessage(copy.draftSaved);
-    } catch {
-      setMessage(
-        lang === "bn"
-          ? "ব্রাউজারে খসড়া সংরক্ষণ করা যায়নি।"
-          : "Could not save the draft in this browser."
-      );
-    }
+    setFeedback("");
+    setReceipt(null);
   }
 
   function clear() {
     setDraft(emptyDraft);
-    setMessage("");
+    setReceipt(null);
+    setFeedback("");
 
     try {
       sessionStorage.removeItem(storageKey);
     } catch {
-      // No action required.
+      // Storage unavailable.
+    }
+  }
+
+  function saveDraft() {
+    try {
+      sessionStorage.setItem(
+        storageKey,
+        JSON.stringify(draft),
+      );
+
+      setFeedback(copy.draftSaved);
+    } catch {
+      setFeedback(
+        lang === "bn"
+          ? "খসড়া সংরক্ষণ করা যায়নি।"
+          : "Could not save the draft.",
+      );
+    }
+  }
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    setFeedback("");
+    setReceipt(null);
+
+    const departmentId = Number(
+      draft.departmentId,
+    );
+
+    if (
+      !departments.some(
+        (item) => item.id === departmentId,
+      )
+    ) {
+      setFeedback(copy.chooseDepartment);
+      return;
+    }
+
+    const location = draft.ward.trim()
+      ? `Ward ${draft.ward.trim()}, ${draft.location.trim()}`
+      : draft.location.trim();
+
+    if (location.length > 255) {
+      setFeedback(
+        lang === "bn"
+          ? "ঠিকানা ২৫৫ অক্ষরের বেশি হয়েছে।"
+          : "Combined location must be at most 255 characters.",
+      );
+
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const result = await submitComplaint({
+        title: draft.title.trim(),
+        description: draft.description.trim(),
+        location,
+        department_id: departmentId,
+      });
+
+      if (
+        result.citizen_id !== user?.id
+      ) {
+        throw new Error(
+          "Unexpected complaint owner returned by the server.",
+        );
+      }
+
+      setReceipt(result);
+      setDraft(emptyDraft);
+
+      try {
+        sessionStorage.removeItem(storageKey);
+      } catch {
+        // Continue after successful backend submission.
+      }
+    } catch (reason) {
+      setFeedback(
+        friendlyError(reason),
+      );
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -1406,70 +1947,125 @@ function NewComplaintPage() {
       title={copy.complaintNewTitle}
       description={copy.complaintNewDesc}
     >
+      {receipt && (
+        <div
+          className="jd-feedback jd-feedback-success"
+          role="status"
+        >
+          <strong>{copy.submitted}</strong>
+
+          <p>
+            {copy.receipt}:{" "}
+            <strong>#{receipt.id}</strong>
+          </p>
+
+          <Link
+            className="jd-primary-btn"
+            to={`/dashboard/complaints/track?id=${receipt.id}`}
+          >
+            {copy.viewStatus}
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+      )}
+
       <form
         className="jd-form jd-card"
-        onSubmit={save}
+        onSubmit={(event) =>
+          void handleSubmit(event)
+        }
       >
         <div className="jd-form-grid">
           <label>
             {copy.labelTitle}
 
             <input
+              required
+              minLength={5}
+              maxLength={200}
               value={draft.title}
               onChange={(event) =>
                 setField(
                   "title",
-                  event.target.value
+                  event.target.value,
                 )
               }
-              maxLength={150}
-              required
             />
           </label>
 
           <label>
-            {copy.labelCategory}
+            {copy.labelDepartment}
 
             <select
-              value={draft.category}
+              required
+              value={draft.departmentId}
+              disabled={
+                departmentLoading ||
+                !!departmentError ||
+                !departments.length
+              }
               onChange={(event) =>
                 setField(
-                  "category",
-                  event.target.value
+                  "departmentId",
+                  event.target.value,
                 )
               }
-              required
             >
               <option value="">
-                {copy.chooseCategory}
+                {copy.chooseDepartment}
               </option>
 
-              {categories.map((category) => (
-                <option
-                  key={category}
-                  value={category}
-                >
-                  {category}
-                </option>
-              ))}
+              {departments.map(
+                (department) => (
+                  <option
+                    key={department.id}
+                    value={department.id}
+                  >
+                    {department.name}
+                  </option>
+                ),
+              )}
             </select>
           </label>
         </div>
+
+        {departmentLoading && (
+          <p className="jd-muted">
+            {copy.loading}
+          </p>
+        )}
+
+        {departmentError && (
+          <ErrorState
+            error={departmentError}
+            retry={() => {
+              setDepartmentLoading(true);
+              setRevision((n) => n + 1);
+            }}
+          />
+        )}
+
+        {!departmentLoading &&
+          !departmentError &&
+          !departments.length && (
+            <p className="jd-feedback jd-feedback-error">
+              {copy.noDepartments}
+            </p>
+          )}
 
         <div className="jd-form-grid">
           <label>
             {copy.labelWard}
 
             <input
+              maxLength={40}
               value={draft.ward}
               onChange={(event) =>
                 setField(
                   "ward",
-                  event.target.value
+                  event.target.value,
                 )
               }
-              maxLength={80}
-              required
             />
           </label>
 
@@ -1477,48 +2073,48 @@ function NewComplaintPage() {
             {copy.labelLocation}
 
             <input
+              required
+              minLength={3}
+              maxLength={255}
               value={draft.location}
               onChange={(event) =>
                 setField(
                   "location",
-                  event.target.value
+                  event.target.value,
                 )
               }
-              maxLength={200}
-              required
             />
           </label>
         </div>
+
+        <p className="jd-muted">
+          {copy.locationNote}
+        </p>
 
         <label>
           {copy.labelDescription}
 
           <textarea
+            required
+            minLength={10}
+            maxLength={5000}
+            rows={6}
             value={draft.description}
             onChange={(event) =>
               setField(
                 "description",
-                event.target.value
+                event.target.value,
               )
             }
-            minLength={10}
-            maxLength={3000}
-            rows={6}
-            required
           />
         </label>
 
-        <p className="jd-form-warning">
-          <ShieldCheck size={18} />
-          {copy.submissionPending}
-        </p>
-
-        {message && (
+        {feedback && (
           <p
-            className="jd-draft-message"
-            role="status"
+            className="jd-feedback jd-feedback-error"
+            role="alert"
           >
-            {message}
+            {feedback}
           </p>
         )}
 
@@ -1532,11 +2128,28 @@ function NewComplaintPage() {
           </button>
 
           <button
-            className="jd-primary-btn"
-            type="submit"
+            className="jd-secondary-btn"
+            type="button"
+            onClick={saveDraft}
           >
             <Bookmark size={17} />
             {copy.draftSave}
+          </button>
+
+          <button
+            className="jd-primary-btn"
+            type="submit"
+            disabled={
+              submitting ||
+              departmentLoading ||
+              !!departmentError ||
+              !departments.length
+            }
+          >
+            <FilePlus2 size={17} />
+            {submitting
+              ? copy.submitting
+              : copy.submit}
           </button>
         </div>
       </form>
@@ -1545,56 +2158,226 @@ function NewComplaintPage() {
 }
 
 function ComplaintsPage() {
-  const { copy } = useLanguage();
+  const { user } = useAuth();
+  const { copy, lang } = useLanguage();
+
+  const {
+    items,
+    loading,
+    error,
+    refresh,
+  } = useComplaintRecords(user?.id);
 
   return (
     <SectionPage
       title={copy.complaintPage}
       description={copy.complaintPageDesc}
     >
-      <div className="jd-card jd-list-empty">
-        <ListFilter size={34} />
+      <div className="jd-card">
+        {loading && (
+          <p className="jd-muted">
+            {copy.loading}
+          </p>
+        )}
 
-        <h2>{copy.awaiting}</h2>
+        {error && (
+          <ErrorState
+            error={error}
+            retry={refresh}
+          />
+        )}
 
-        <p>{copy.noRecords}</p>
+        {!loading &&
+          !error &&
+          (items.length ? (
+            <div className="jd-record-list">
+              {items.map((item) => (
+                <Link
+                  key={item.id}
+                  className="jd-record-row"
+                  to={`/dashboard/complaints/track?id=${item.id}`}
+                >
+                  <div>
+                    <strong>
+                      #{item.id} — {item.title}
+                    </strong>
 
-        <Link
-          className="jd-primary-btn"
-          to="/dashboard/complaints/new"
-        >
-          <FilePlus2 size={18} />
-          {copy.newComplaint}
-        </Link>
+                    <small>
+                      {item.location} ·{" "}
+                      {readableDate(
+                        item.created_at,
+                        lang,
+                      )}
+                    </small>
+                  </div>
+
+                  <StatusBadge
+                    status={item.status}
+                  />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="jd-muted">
+              {copy.noRecords}
+            </p>
+          ))}
+
+        <div className="jd-form-actions">
+          <Link
+            className="jd-primary-btn"
+            to="/dashboard/complaints/new"
+          >
+            <FilePlus2 size={18} />
+            {copy.newComplaint}
+          </Link>
+        </div>
       </div>
     </SectionPage>
   );
 }
 
 function TrackPage() {
+  const { user } = useAuth();
   const { copy } = useLanguage();
+  const [params] = useSearchParams();
+
+  const initialId =
+    params.get("id") || "";
+
+  const [query, setQuery] =
+    useState(initialId);
+
+  const [complaint, setComplaint] =
+    useState<Complaint | null>(null);
+
+  const [departments, setDepartments] =
+    useState<Department[]>([]);
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    getActiveDepartments()
+      .then((items) => {
+        if (
+          active &&
+          Array.isArray(items)
+        ) {
+          setDepartments(items);
+        }
+      })
+      .catch(() => {
+        // Department ID is shown if names cannot load.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function searchFor(value: string) {
+    const id = Number(value);
+
+    setComplaint(null);
+    setError("");
+
+    if (
+      !/^\d+$/.test(value.trim()) ||
+      !Number.isSafeInteger(id) ||
+      id < 1
+    ) {
+      setError(copy.invalidId);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const item =
+        await getComplaintById(id);
+
+      if (
+        item.citizen_id !== user?.id
+      ) {
+        throw new Error(copy.notOwned);
+      }
+
+      setComplaint(item);
+    } catch (reason) {
+      setError(friendlyError(reason));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (initialId) {
+      void searchFor(initialId);
+    }
+
+    // Search when URL complaint ID changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialId]);
 
   return (
     <SectionPage
       title={copy.trackPage}
       description={copy.trackPageDesc}
     >
-      <div className="jd-card jd-track-placeholder">
-        <MapPin size={36} />
+      <div className="jd-card jd-tracking-search">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void searchFor(query);
+          }}
+        >
+          <label htmlFor="jd-track-id">
+            {copy.searchPlaceholder}
+          </label>
 
-        <h2>{copy.awaiting}</h2>
+          <div className="jd-track-controls">
+            <input
+              id="jd-track-id"
+              inputMode="numeric"
+              value={query}
+              onChange={(event) =>
+                setQuery(event.target.value)
+              }
+              placeholder={
+                copy.searchPlaceholder
+              }
+            />
 
-        <p>{copy.searchPending}</p>
+            <button
+              type="submit"
+              className="jd-primary-btn"
+              disabled={loading}
+            >
+              <Search size={17} />
+              {copy.find}
+            </button>
+          </div>
+        </form>
 
-        <div className="jd-search-placeholder">
-          <Search size={19} />
+        {loading && (
+          <p className="jd-muted">
+            {copy.loading}
+          </p>
+        )}
 
-          <input
-            placeholder={copy.searchPlaceholder}
-            aria-label={copy.searchPlaceholder}
-            disabled
+        {error && (
+          <ErrorState error={error} />
+        )}
+
+        {complaint && (
+          <ComplaintDetails
+            complaint={complaint}
+            departments={departments}
           />
-        </div>
+        )}
       </div>
     </SectionPage>
   );
@@ -1673,7 +2456,10 @@ export default function DashboardPage({
     );
   }
 
-  const pages: Record<DashboardView, ReactNode> = {
+  const pages: Record<
+    DashboardView,
+    ReactNode
+  > = {
     home: <HomeDashboard />,
     new: <NewComplaintPage />,
     complaints: <ComplaintsPage />,
