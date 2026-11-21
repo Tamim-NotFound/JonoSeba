@@ -1,43 +1,85 @@
 
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+import React, { type ReactNode } from "react";
+import ReactDOM from "react-dom/client";
 
 import {
   BrowserRouter,
-  Route,
   Routes,
+  Route,
+  Navigate,
 } from "react-router-dom";
 
-import i18n from "./i18n";
-import App from "./App";
+import "./i18n";
+import "./index.css";
 
-import { AuthProvider } from "./AuthContext";
+import App from "./App";
 
 import {
   LoginPage,
   RegisterPage,
 } from "./AuthPages";
 
+import {
+  AuthProvider,
+  useAuth,
+} from "./AuthContext";
+
 import DashboardPage from "./DashboardPage";
+import AdminPage from "./AdminPage";
 
-import "./index.css";
+/*
+  Citizen dashboard guard.
 
-// Set the correct document language on startup.
-document.documentElement.lang =
-  i18n.resolvedLanguage === "en" ? "en" : "bn";
+  Logged-out users go to Login.
+  Admin users go to Admin Dashboard.
+  Citizens can access their own dashboard.
+*/
+function CitizenRoute({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const { user, loading } = useAuth();
 
-const rootElement = document.getElementById("root");
+  if (loading) {
+    return (
+      <div role="status">
+        Loading JonoSeba...
+      </div>
+    );
+  }
 
-if (!rootElement) {
-  throw new Error("React root element not found.");
+  if (!user) {
+    return (
+      <Navigate to="/login" replace />
+    );
+  }
+
+  if (user.role === "admin") {
+    return (
+      <Navigate to="/admin" replace />
+    );
+  }
+
+  return <>{children}</>;
 }
 
-createRoot(rootElement).render(
-  <StrictMode>
+/*
+  Current login page redirects to /dashboard.
+
+  CitizenRoute automatically redirects
+  admin accounts from /dashboard to /admin.
+
+  This preserves the existing login form.
+*/
+
+ReactDOM.createRoot(
+  document.getElementById("root")!,
+).render(
+  <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Real authentication pages */}
           <Route
             path="/login"
             element={<LoginPage />}
@@ -48,37 +90,56 @@ createRoot(rootElement).render(
             element={<RegisterPage />}
           />
 
-          {/* Protected citizen dashboard */}
           <Route
             path="/dashboard"
-            element={<DashboardPage view="home" />}
+            element={
+              <CitizenRoute>
+                <DashboardPage view="home" />
+              </CitizenRoute>
+            }
           />
 
-          {/* Complaint draft form */}
           <Route
             path="/dashboard/complaints/new"
-            element={<DashboardPage view="new" />}
+            element={
+              <CitizenRoute>
+                <DashboardPage view="new" />
+              </CitizenRoute>
+            }
           />
 
-          {/* Complaint tracking */}
           <Route
             path="/dashboard/complaints/track"
-            element={<DashboardPage view="track" />}
+            element={
+              <CitizenRoute>
+                <DashboardPage view="track" />
+              </CitizenRoute>
+            }
           />
 
-          {/* Citizen complaint list */}
           <Route
             path="/dashboard/complaints"
-            element={<DashboardPage view="complaints" />}
+            element={
+              <CitizenRoute>
+                <DashboardPage view="complaints" />
+              </CitizenRoute>
+            }
           />
 
-          {/* Citizen profile */}
           <Route
             path="/dashboard/profile"
-            element={<DashboardPage view="profile" />}
+            element={
+              <CitizenRoute>
+                <DashboardPage view="profile" />
+              </CitizenRoute>
+            }
           />
 
-          {/* Existing public website */}
+          <Route
+            path="/admin"
+            element={<AdminPage />}
+          />
+
           <Route
             path="/*"
             element={<App />}
@@ -86,5 +147,5 @@ createRoot(rootElement).render(
         </Routes>
       </AuthProvider>
     </BrowserRouter>
-  </StrictMode>,
+  </React.StrictMode>,
 );
