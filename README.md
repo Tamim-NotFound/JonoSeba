@@ -1,336 +1,1364 @@
 
 # JonoSeba (জনসেবা)
 
-**AI-powered Municipal Citizen Service Assistant**
+### AI-Powered Smart Citizen Services and Complaint Management Platform
 
-JonoSeba is a Bangladesh-focused educational project built
-with FastAPI, PostgreSQL, React, Gemini, RAG, and MCP.
+JonoSeba is a Bangladesh-focused citizen-service and complaint-management platform developed as a PHITRON Final Project.
 
-It helps citizens submit municipal complaints, track their
-current status, and ask questions about citizen services.
+It combines **FastAPI, PostgreSQL, pgvector, Google Gemini, RAG, MCP, JWT authentication, Docker, and React** to provide a unified municipal service experience.
 
-**Disclaimer:** JonoSeba is an independent educational
-demo, not an official government-operated portal.
+Citizens can submit complaints, track their progress, and receive AI-assisted guidance about municipal services.
 
-## 1. Problem and target users
+Administrators can manage complaints, departments, and citizen-service operations.
 
-Citizens often need to find service information from
-multiple sources and follow up on complaints manually.
+> **Project notice:** JonoSeba is an independent educational demonstration project. It is not operated by a municipality or government agency.
 
-JonoSeba provides one interface for:
-- Municipal service guidance
-- Citizen complaint submission
-- Complaint status tracking
-- Administrative complaint management
-- AI-assisted questions in Bangla and English
+---
 
-Target users are citizens and small municipal service
-teams in Bangladesh.
+## 1. Project Overview
 
-## 2. Main features
+### The Problem
 
-### Citizen
-- Register and log in with email and password
-- Submit complaints to active departments
-- View personal complaint records
-- Track current complaint status
-- Use the AI chat assistant
+Citizens in Bangladesh often face difficulties when accessing municipal services.
 
-### Administrator
-- Log in using an authorized admin account
-- View complaints from all citizens
-- Search and filter complaints
+Common challenges include:
+
+- Finding information about required service documents
+- Understanding service application procedures
+- Submitting complaints to the appropriate department
+- Tracking complaint progress
+- Receiving timely responses to common questions
+- Managing municipal records through disconnected systems
+
+Municipal service teams also spend time manually handling repetitive queries and maintaining complaint records.
+
+### Our Solution
+
+JonoSeba provides a centralized digital platform connecting citizens, administrators, and AI-assisted municipal service information.
+
+The system supports:
+
+1. Citizen registration and authentication
+2. Municipal department information
+3. Complaint submission and management
+4. Complaint progress tracking
+5. AI-assisted citizen-service guidance
+6. Retrieval-Augmented Generation (RAG)
+7. Database-backed AI tool calling
+8. Model Context Protocol (MCP)
+9. Administrative management and reporting
+
+### Target Users
+
+- Citizens living in municipal areas of Bangladesh
+- Small municipalities and municipal administrative teams
+- Local citizen-service offices
+- Organizations providing municipal support services
+
+---
+
+## 2. Main Features
+
+### 2.1 Citizen Features
+
+Citizens can:
+
+- Create a personal account
+- Log in securely using email and password
+- View available municipal departments
+- Submit complaints
+- View their own complaints
+- Track complaint status
+- Ask questions through the AI chatbot
+- Receive guidance based on stored JonoSeba service information
+
+### 2.2 Administrator Features
+
+Authorized administrators can:
+
+- Access administrative functions
+- View citizen complaints
+- Search and filter complaint records
 - Update complaint status
-- View complaint statistics
+- Manage relevant municipal information
+- Review complaint statistics
+- Monitor complaint-management activity
 
-### AI backend
-- Gemini language model integration
-- Multi-turn chat request support
+Administrative operations are protected by backend role-based authorization.
+
+### 2.3 AI Chatbot Features
+
+JonoSeba uses Google Gemini for conversational AI and tool selection.
+
+The chatbot supports:
+
+- Bangla and English questions
+- Multi-turn conversations
 - Database-backed tool calling
-- pgvector-based knowledge retrieval components
-- MCP integration modules
+- Municipal department information
+- Personal complaint-status assistance
+- Knowledge-base retrieval
+- Answers grounded in saved JonoSeba service guides
+- Safe fallback when suitable information is unavailable
 
-AI tool execution, published knowledge coverage, and
-MCP transport behavior must be verified with live tests
-before the final demonstration.
+The chatbot uses saved service information rather than inventing missing service requirements.
 
-## 3. Technology stack
+### 2.4 RAG Knowledge System
 
-| Layer | Technology |
+The RAG implementation supports:
+
+- Document ingestion
+- Text chunking
+- Gemini-generated embeddings
+- PostgreSQL pgvector storage
+- Semantic similarity search
+- Retrieval of matching knowledge chunks
+- Responses constructed from retrieved service information
+- Fallback when no suitable knowledge is found
+
+The current project includes 10 saved municipal service guides.
+
+### 2.5 MCP Integration
+
+JonoSeba includes an MCP server for exposing application capabilities to compatible MCP clients.
+
+The MCP implementation provides:
+
+- Database-backed tools
+- Resources
+- Prompts
+- HTTP transport
+- Standard input/output (stdio) transport
+
+The MCP server uses the application's existing service and database architecture.
+
+---
+
+## 3. Technology Stack
+
+| Component | Technology |
 |---|---|
-| Backend | Python, FastAPI |
-| Database | PostgreSQL, pgvector |
-| ORM | Async SQLAlchemy |
-| Migrations | Alembic |
-| Authentication | JWT, Argon2 |
-| AI | Gemini |
-| RAG | Embeddings and PostgreSQL vector search |
-| MCP | Python MCP integration |
-| Frontend | React, TypeScript, Vite |
-| Development tooling | uv, pytest |
-| Containerization | Docker Compose |
+| Programming language | Python 3.12 |
+| Backend framework | FastAPI |
+| API documentation | Swagger / OpenAPI |
+| Database | PostgreSQL 16 |
+| Vector database support | pgvector |
+| ORM | SQLAlchemy Async |
+| Database migrations | Alembic |
+| Authentication | JWT |
+| Password hashing | Argon2 |
+| Input validation | Pydantic |
+| Configuration | pydantic-settings |
+| AI model | Google Gemini |
+| AI embeddings | Gemini Embedding API |
+| RAG | Embeddings + pgvector retrieval |
+| Tool calling | Gemini function calling |
+| MCP | Python MCP SDK |
+| Frontend | React |
+| Frontend language | TypeScript |
+| Frontend build tool | Vite |
+| Dependency management | uv |
+| Backend testing | pytest |
+| Containerization | Docker and Docker Compose |
+| Version control | Git and GitHub |
 
-## 4. Local backend setup
+---
 
-Requirements:
+## 4. Project Architecture
+
+JonoSeba follows a modular backend architecture.
+
+Main directories:
+
+```text
+JonoSeba/
+├── app/
+│   ├── core/
+│   ├── db/
+│   ├── integrations/
+│   │   ├── llm/
+│   │   └── mcp/
+│   └── modules/
+│       ├── auth/
+│       ├── complaints/
+│       ├── departments/
+│       └── knowledge/
+├── alembic/
+├── frontend/
+├── scripts/
+├── tests/
+├── Dockerfile
+├── pyproject.toml
+├── uv.lock
+├── .env.example
+└── README.md
+```
+
+The backend separates responsibilities into:
+
+- Controllers and API routes
+- Services and business logic
+- Repositories and database operations
+- Pydantic request/response schemas
+- SQLAlchemy database models
+- Dependency injection
+- External AI and MCP integrations
+
+This separation improves maintainability, testing, and extensibility.
+
+---
+
+## 5. Environment Configuration
+
+### Requirements
+
+For local backend development:
+
 - Python 3.12
 - uv
 - PostgreSQL with pgvector
-- Required API credentials
+- Gemini API credentials
+- Git
 
-Clone the repository, then from the project root:
+For Docker-based development:
 
-    uv sync --frozen
-    cp .env.example .env
+- Docker
+- Docker Compose
+- Gemini API credentials
 
-Edit `.env` and provide the required values described
-in `.env.example`.
+For frontend development:
 
-Never commit `.env` or real API credentials.
+- Node.js
+- npm
 
-Create the PostgreSQL database and enable pgvector:
+### Clone the Repository
 
-    CREATE EXTENSION IF NOT EXISTS vector;
+```bash
+git clone YOUR_PUBLIC_GITHUB_REPOSITORY_URL
+cd JonoSeba
+```
 
-Run database migrations:
+Replace the repository URL with the actual public GitHub URL.
 
-    uv run alembic upgrade head
+### Install Python Dependencies
 
-Seed municipal departments:
+```bash
+uv sync --frozen
+```
 
-    uv run python -m scripts.seed_departments
+### Configure Environment Variables
 
-Start the backend:
+Create your local environment file:
 
-    uv run uvicorn app.main:app --reload --port 8000
+```bash
+cp .env.example .env
+```
 
-Open:
+Update `.env` with the required application settings.
 
-    http://127.0.0.1:8000/docs
+Examples include:
 
-## 5. Docker setup
+- DATABASE_URL
+- JWT_SECRET_KEY
+- GEMINI_API_KEY
+- GEMINI_MODEL
+- Other settings defined in `.env.example`
 
-Docker Compose provides an isolated backend and
-PostgreSQL/pgvector environment.
+Use the exact variable names from the project's configuration files.
 
-Create the real `.env` file from `.env.example`.
-Provide all application secrets and API credentials.
+Never commit real credentials or secret keys.
 
-Create a separate, Git-ignored `.env.docker` file:
+### Database Configuration
 
-    POSTGRES_PASSWORD=YOUR_LONG_RANDOM_ALPHANUMERIC_PASSWORD
+For a locally installed PostgreSQL database, create the project database and enable pgvector.
 
-Start:
+Example SQL:
 
-    docker compose --env-file .env.docker up --build -d
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
 
-Check logs:
+The extension must be enabled in the database used by JonoSeba.
 
-    docker compose --env-file .env.docker logs api --tail=100
+### Run Alembic Migrations
 
-Open Swagger:
+```bash
+uv run alembic upgrade head
+```
 
-    http://127.0.0.1:8000/docs
+### Seed Municipal Departments
 
-Seed departments inside the running container:
+```bash
+uv run python -m scripts.seed_departments
+```
 
-    docker compose --env-file .env.docker exec api uv run --no-sync python -m scripts.seed_departments
+### Start the Backend
 
-Stop containers:
+```bash
+uv run uvicorn app.main:app --reload --port 8000
+```
 
-    docker compose --env-file .env.docker down
+### Open Swagger Documentation
 
-Do not use `down -v` unless you intentionally want to
-delete the isolated Docker database volume.
+```text
+http://127.0.0.1:8000/docs
+```
 
-The Docker startup process runs Alembic migrations.
+All main application API endpoints use the `/api/v1` prefix.
 
-The external Gemini embedding dependency and the
-complete embedding-service deployment requirement
-will be verified separately before final submission.
+---
 
-## 6. Frontend setup
+## 6. Docker Setup
 
-From the repository root:
+Docker Compose provides the local container environment for JonoSeba.
 
-    cd frontend
-    npm install
-    npm run dev
+The existing project setup includes:
+
+- FastAPI backend container
+- PostgreSQL with pgvector
+- MCP HTTP service
+
+Gemini and its embedding API are accessed through configured external API credentials.
+
+### Step 1: Configure Environment
+
+Create the local `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+Provide the required credentials and application configuration.
+
+Create a separate `.env.docker` file containing the Docker Compose configuration values.
+
+For example:
+
+```dotenv
+POSTGRES_PASSWORD=REPLACE_WITH_A_STRONG_RANDOM_PASSWORD
+```
+
+Add any other environment variables required by your actual Docker Compose configuration.
+
+Ensure the Docker database connection settings match the PostgreSQL credentials and service name.
+
+Do not commit `.env` or `.env.docker`.
+
+### Step 2: Build and Start Docker Services
+
+From the project root:
+
+```bash
+docker compose --env-file .env.docker up -d --build
+```
+
+### Step 3: Check Running Containers
+
+```bash
+docker compose --env-file .env.docker ps
+```
+
+The backend, database, and MCP services should be running.
+
+### Step 4: Check API Logs
+
+```bash
+docker compose --env-file .env.docker logs api --tail=100
+```
+
+The current API container startup configuration runs Alembic migrations.
+
+For a manually started environment, migrations can also be applied using the configured application environment.
+
+### Step 5: Seed Departments
+
+```bash
+docker compose --env-file .env.docker exec -T api \
+  python -m scripts.seed_departments
+```
+
+### Step 6: Ingest Saved JonoSeba Research
+
+```bash
+docker compose --env-file .env.docker exec -T api \
+  python -m scripts.ingest_master_research --all --ingest
+```
+
+This ingests the saved municipal service guides into the knowledge database.
+
+The ingestion process:
+
+1. Reads the saved guide content
+2. Splits the content into chunks
+3. Generates embeddings
+4. Stores the chunks and vectors in PostgreSQL
+5. Makes the saved research available to the research retrieval path
+
+Previously published document records are protected by the ingestion workflow.
+
+### Step 7: Open API Documentation
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+### Step 8: Check MCP HTTP Service
+
+The local MCP HTTP endpoint is configured at:
+
+```text
+http://127.0.0.1:8001/mcp
+```
+
+MCP clients should use the protocol's required initialization and message format.
+
+This endpoint is not a regular REST JSON endpoint.
+
+### Stop Docker Services
+
+```bash
+docker compose --env-file .env.docker down
+```
+
+**Important:** Do not use `docker compose down -v` unless you intentionally want to remove the database volume and its stored data.
+
+---
+
+## 7. Frontend Setup
+
+The frontend is developed using React, TypeScript, and Vite.
+
+### Install Dependencies
+
+From the project root:
+
+```bash
+cd frontend
+npm install
+```
+
+### Start the Development Server
+
+```bash
+npm run dev
+```
 
 Default development URL:
 
-    http://localhost:5173
+```text
+http://localhost:5173
+```
 
-Production build:
+### Production Build
 
-    npm run build
+```bash
+npm run build
+```
 
-## 7. Main API endpoints
+The build runs TypeScript checking and generates the production frontend assets.
 
-All primary application APIs use `/api/v1`.
+The frontend communicates with the FastAPI backend through its configured API base URL.
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| POST | /api/v1/auth/register | Register a citizen |
-| POST | /api/v1/auth/login | Obtain a JWT |
-| GET | /api/v1/auth/me | Read current user |
-| GET | /api/v1/departments | List departments |
-| POST | /api/v1/complaints | Submit complaint |
-| GET | /api/v1/complaints | List allowed complaints |
-| GET | /api/v1/complaints/{id} | Read one complaint |
-| PATCH | /api/v1/complaints/{id} | Update a complaint |
-| DELETE | /api/v1/complaints/{id} | Delete a complaint |
-| POST | /api/v1/chat | Send a chat request |
+---
 
-Swagger shows the exact request/response schemas
-and authentication requirements.
+## 8. REST API Endpoints
 
-### Example complaint request
+The main backend API uses the following prefix:
 
-    {
-      "title": "Broken streetlight",
-      "description": "The streetlight has not worked for several days.",
-      "location": "Savar, Dhaka",
-      "department_id": 1
-    }
-
-`department_id` must refer to a real active department.
-
-### Example chat request
-
-    {
-      "message": "How can I apply for a trade license?",
-      "history": []
-    }
-
-The assistant must not invent official fees, document
-requirements, timelines, or government approval.
-
-## 8. Architecture and data flows
-
-### Domain API
-
-Client → FastAPI controller → dependency injection →
-service → repository → PostgreSQL → Pydantic response
+```text
+/api/v1
+```
 
 ### Authentication
 
-Registration → Argon2 password hash → database
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /api/v1/auth/register | Register a citizen |
+| POST | /api/v1/auth/login | Log in and receive a JWT |
+| GET | /api/v1/auth/me | Get the current authenticated user |
 
-Login → password verification → expiring JWT
+### Municipal Departments
 
-Protected request → token validation → current user
-and database role → authorization
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | /api/v1/departments | List available departments |
 
-### AI and tools
+Administrative department-management operations are also available according to backend permissions.
 
-Chat endpoint → service → Gemini integration →
-model tool selection → database-backed tool →
-tool result → model answer
+### Complaints
 
-### RAG
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /api/v1/complaints | Create a complaint |
+| GET | /api/v1/complaints | List accessible complaints |
+| GET | /api/v1/complaints/{id} | Get one complaint |
+| PATCH | /api/v1/complaints/{id} | Update a complaint |
+| DELETE | /api/v1/complaints/{id} | Delete a complaint |
 
-Source documents → review/ingestion → chunks →
-embeddings → pgvector
+Available operations depend on the user's role and the endpoint's authorization rules.
 
-Question → query embedding → vector retrieval →
-grounded AI answer or insufficient-evidence response
+### AI Chat
 
-### MCP
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /api/v1/chat | Send a chatbot message |
 
-MCP client → HTTP or stdio transport →
-MCP tool/resource/prompt → application services
+The full request and response schemas are available in Swagger.
 
-Both transports must be demonstrated against the
-running backend.
+---
 
-## 9. Testing
+## 9. API Request Examples
 
-Backend:
+The examples below assume that the backend is running on:
 
-    uv run pytest -q
+```text
+http://127.0.0.1:8000
+```
 
-Frontend:
+### 9.1 Register a Citizen
 
-    cd frontend
-    npm run build
+```bash
+curl -X POST \
+  http://127.0.0.1:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "full_name": "Demo Citizen",
+    "email": "citizen@example.com",
+    "password": "REPLACE_WITH_A_STRONG_PASSWORD"
+  }'
+```
 
-Manual acceptance tests:
-- Register and log in
-- Citizen creates a complaint
-- Admin reviews and changes its status
-- Citizen sees the updated status
-- Gemini answers a basic question
-- A database-backed AI tool is used
-- A RAG answer uses published source evidence
-- MCP tools work over HTTP and stdio
+Use a valid password that satisfies the backend's password rules.
 
-## 10. Knowledge base
+### 9.2 Login
 
-The knowledge system is intended to support:
-- Birth registration
-- Death registration
-- Trade licenses
-- Holding tax
-- Municipal complaint guidance
+```bash
+curl -X POST \
+  http://127.0.0.1:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "citizen@example.com",
+    "password": "REPLACE_WITH_A_STRONG_PASSWORD"
+  }'
+```
 
-Publication must use reviewed, source-linked information.
+A successful login returns an access token.
 
-The knowledge ingestion/publication entrypoint and
-successful retrieval of published chunks still need
-final verification.
+### 9.3 Authenticated Requests
 
-## 11. Business model
+Store the received JWT in a local shell variable:
 
-**Potential customers:** Small municipalities and
-municipal-service organizations in Bangladesh.
+```bash
+read -r -s -p "JWT access token: " TOKEN
+echo
+```
 
-**Problem addressed:** Manual complaint tracking,
-repetitive service questions, and fragmented guidance.
+Use the token in authorized requests:
 
-**Proposed business model:** One-time setup fee plus
-annual hosting, support, and maintenance.
+```bash
+curl \
+  http://127.0.0.1:8000/api/v1/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
 
-**Value proposition:** A centralized complaint workflow
-and AI-assisted access to service information.
+### 9.4 List Departments
 
-This is a proposed commercial model, not an existing
-government partnership or paying-customer claim.
+```bash
+curl \
+  http://127.0.0.1:8000/api/v1/departments
+```
 
-## 12. Submission links
+### 9.5 Create a Complaint
 
-Replace these placeholders before submission:
+```bash
+curl -X POST \
+  http://127.0.0.1:8000/api/v1/complaints \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "title": "Broken streetlight",
+    "description": "The streetlight near our road is not working.",
+    "location": "Savar, Dhaka",
+    "department_id": 1
+  }'
+```
 
-**GitHub repository:** ADD_PUBLIC_GITHUB_REPOSITORY_URL
+Replace `department_id` with the ID of an existing active department.
 
-**Demonstration video (Google Drive):**
-ADD_PUBLIC_GOOGLE_DRIVE_VIDEO_URL
+### 9.6 List Complaints
 
-**Live backend Swagger on Render:**
-ADD_LIVE_RENDER_DOCS_URL
+```bash
+curl \
+  http://127.0.0.1:8000/api/v1/complaints \
+  -H "Authorization: Bearer $TOKEN"
+```
 
-Make the repository accessible and the Google Drive
-video viewable to anyone with the link.
+### 9.7 Get a Specific Complaint
 
-## 13. Demonstration video plan
+```bash
+curl \
+  http://127.0.0.1:8000/api/v1/complaints/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
 
-Record a 5–10 minute demonstration in your own voice.
+Replace `1` with an existing accessible complaint ID.
 
-Include:
-1. Project overview, users, problem, and features
-2. Domain API data flow
-3. Chat and tool-calling data flow
-4. RAG ingestion and retrieval data flow
-5. MCP tool/resource/prompt data flow
-6. JWT authentication and authorization data flow
-7. Working frontend and admin demonstration
-8. Important backend code explanation
+### 9.8 Update a Complaint
 
-## 14. Security notes
+For authorized users, use:
 
-- Do not commit `.env` or `.env.docker`
-- Do not commit real API keys or JWT secrets
-- Passwords are stored using secure hashes
-- Roles are checked on the backend
-- Admin promotion is an authorized local operation
-- This application is not a government authority
+```bash
+curl -X PATCH \
+  http://127.0.0.1:8000/api/v1/complaints/1 \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "status": "resolved"
+  }'
+```
+
+Use a supported status value from the Swagger schema and an account with update permission.
+
+### 9.9 Delete a Complaint
+
+```bash
+curl -X DELETE \
+  http://127.0.0.1:8000/api/v1/complaints/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Deletion requires the appropriate authorization.
+
+### 9.10 Chat with Gemini
+
+```bash
+curl -X POST \
+  http://127.0.0.1:8000/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "message": "ট্রেড লাইসেন্স করতে কী কী কাগজপত্র লাগবে?",
+    "history": []
+  }'
+```
+
+### 9.11 Multi-Turn Chat
+
+The chat endpoint accepts previous messages:
+
+```json
+{
+  "message": "Can you explain the next step?",
+  "history": [
+    {
+      "role": "user",
+      "content": "What is a trade license?"
+    },
+    {
+      "role": "model",
+      "content": "A trade license is a business licensing document."
+    }
+  ]
+}
+```
+
+The application passes the conversation history to the Gemini integration.
+
+---
+
+## 10. RAG Knowledge Base
+
+JonoSeba includes a municipal service knowledge base.
+
+### 10.1 Saved Service Guides
+
+The current master catalog contains 10 guides:
+
+| No. | Municipal service |
+|---|---|
+| 1 | New birth registration |
+| 2 | Birth registration correction |
+| 3 | Lost birth certificate reprint |
+| 4 | Death registration and death certificate |
+| 5 | New trade license and renewal |
+| 6 | Citizenship, character and heir certificates |
+| 7 | Holding number, ownership changes and holding tax |
+| 8 | Building plan approval |
+| 9 | New water connection and billing |
+| 10 | Health services, EPI and mosquito control |
+
+These guides contain saved JonoSeba service information.
+
+### 10.2 Ingestion Process
+
+The saved service information is processed through the knowledge ingestion system.
+
+```text
+Saved service guide
+        |
+        v
+Knowledge document
+        |
+        v
+Text chunking
+        |
+        v
+Gemini embeddings
+        |
+        v
+PostgreSQL + pgvector
+```
+
+### 10.3 Knowledge Retrieval
+
+When a user asks a relevant service question:
+
+```text
+Citizen question
+       |
+       v
+Gemini chatbot
+       |
+       v
+Knowledge tool call
+       |
+       v
+Question embedding
+       |
+       v
+pgvector similarity search
+       |
+       v
+Matching knowledge chunks
+       |
+       v
+Grounded response
+```
+
+The application prioritizes published knowledge when available.
+
+The saved master-guide research is handled through a separate research retrieval path.
+
+For research-based responses, the backend extracts relevant information from the retrieved chunk content and constructs the final answer.
+
+The answer does not need to reproduce an invented fee, requirement, or procedure.
+
+### 10.4 Research Ingestion Command
+
+```bash
+docker compose --env-file .env.docker exec -T api \
+  python -m scripts.ingest_master_research --all --ingest
+```
+
+### 10.5 Example RAG Questions
+
+Examples:
+
+```text
+জন্মনিবন্ধনের জন্য কী কী কাগজপত্র লাগবে?
+```
+
+```text
+মৃত্যু নিবন্ধন করতে কী কী প্রয়োজন?
+```
+
+```text
+ট্রেড লাইসেন্সের জন্য প্রয়োজনীয় কাগজপত্র কী?
+```
+
+```text
+নতুন পানি সংযোগ নিতে কী কী কাগজপত্র লাগবে?
+```
+
+```text
+ওয়ারিশ সনদের জন্য কী কী তথ্য প্রয়োজন?
+```
+
+The chatbot uses the corresponding stored service information when relevant chunks are available.
+
+When suitable information is unavailable, it returns an insufficient-information response instead of inventing details.
+
+---
+
+## 11. AI Tool Calling
+
+JonoSeba implements Gemini function calling.
+
+The AI integration declares three tools:
+
+| Tool | Purpose |
+|---|---|
+| list_departments | Retrieve municipal department information |
+| get_my_complaint_status | Retrieve authorized complaint-status information |
+| search_published_knowledge | Retrieve relevant knowledge and optionally saved research |
+
+### Tool Calling Flow
+
+```text
+Citizen message
+      |
+      v
+FastAPI Chat Endpoint
+      |
+      v
+Gemini Model
+      |
+      v
+Model selects a tool
+      |
+      v
+Tool Executor
+      |
+      v
+Database / Knowledge Service
+      |
+      v
+Tool Result
+      |
+      v
+Final response
+```
+
+The tools execute through application code rather than allowing Gemini unrestricted database access.
+
+Personal complaint information is protected through authenticated user context.
+
+---
+
+## 12. Model Context Protocol (MCP)
+
+JonoSeba includes an MCP integration for compatible external AI clients.
+
+The implementation exposes application capabilities through MCP tools, resources and prompts.
+
+### HTTP Transport
+
+Local MCP HTTP endpoint:
+
+```text
+http://127.0.0.1:8001/mcp
+```
+
+The MCP HTTP service is bound to localhost in the development configuration.
+
+### Stdio Transport
+
+The MCP implementation also supports standard input/output transport.
+
+A compatible MCP client can launch the configured stdio server entrypoint.
+
+The server source is located under:
+
+```text
+app/integrations/mcp/
+```
+
+### MCP Architecture
+
+```text
+MCP Client
+    |
+    +---- HTTP transport
+    |
+    +---- stdio transport
+             |
+             v
+       JonoSeba MCP Server
+             |
+             v
+       MCP Tool / Resource / Prompt
+             |
+             v
+       Application Services
+             |
+             v
+          Database
+```
+
+MCP operations reuse the application's existing backend functionality.
+
+---
+
+## 13. Authentication and Security
+
+JonoSeba implements JWT authentication and role-based access control.
+
+### Security Features
+
+- Password hashing using Argon2
+- JWT access tokens
+- Token expiration
+- Authenticated user dependencies
+- Backend role-based authorization
+- Citizen and administrator roles
+- Protection of personal complaint records
+- Restricted administrative operations
+- Pydantic request validation
+- Centralized error handling
+
+### Authentication Flow
+
+```text
+Citizen registration
+        |
+        v
+Password validation
+        |
+        v
+Argon2 password hash
+        |
+        v
+PostgreSQL user record
+        |
+        v
+Login
+        |
+        v
+Password verification
+        |
+        v
+Expiring JWT
+        |
+        v
+Protected API request
+        |
+        v
+Token and database role validation
+```
+
+### Environment Security
+
+Do not commit:
+
+- `.env`
+- `.env.docker`
+- API credentials
+- JWT secret values
+- Database passwords
+- `.venv/`
+- `__pycache__/`
+- `node_modules/`
+
+The `.env.example` file should contain safe configuration examples only.
+
+---
+
+## 14. Five Required Data Flows
+
+The PHITRON Final Project requires understanding five major application flows.
+
+### 14.1 Domain API Data Flow
+
+```text
+Frontend / Client
+      |
+      v
+FastAPI Controller
+      |
+      v
+Dependency Injection
+      |
+      v
+Service Layer
+      |
+      v
+Repository Layer
+      |
+      v
+PostgreSQL
+      |
+      v
+Pydantic Response
+```
+
+### 14.2 Gemini and Tool Calling
+
+```text
+Citizen Message
+      |
+      v
+Chat Controller
+      |
+      v
+Chat Service
+      |
+      v
+Gemini Integration
+      |
+      v
+Model Tool Selection
+      |
+      v
+Tool Executor
+      |
+      v
+Database-backed Operation
+      |
+      v
+Tool Result / Response
+```
+
+### 14.3 RAG Data Flow
+
+```text
+Saved Knowledge
+      |
+      v
+Chunking
+      |
+      v
+Embeddings
+      |
+      v
+pgvector Storage
+
+Citizen Question
+      |
+      v
+Embedding + Vector Search
+      |
+      v
+Retrieved Chunks
+      |
+      v
+Grounded Answer / Fallback
+```
+
+### 14.4 MCP Data Flow
+
+```text
+MCP Client
+      |
+      v
+HTTP / stdio
+      |
+      v
+MCP Server
+      |
+      v
+Tool / Resource / Prompt
+      |
+      v
+Application Service
+      |
+      v
+Database
+```
+
+### 14.5 JWT Authentication Data Flow
+
+```text
+Register
+   |
+   v
+Password Hashing
+   |
+   v
+Database
+
+Login
+   |
+   v
+Password Verification
+   |
+   v
+JWT Creation
+   |
+   v
+Protected Request
+   |
+   v
+Token + Role Check
+   |
+   v
+Authorized Operation
+```
+
+---
+
+## 15. Testing and Quality Assurance
+
+### Backend Automated Tests
+
+Run:
+
+```bash
+uv run pytest -q
+```
+
+Latest locally verified result:
+
+```text
+241 passed
+```
+
+### Frontend Production Build
+
+```bash
+cd frontend
+npm run build
+```
+
+Latest locally verified result:
+
+```text
+TypeScript build: PASS
+Vite production build: PASS
+```
+
+### Docker Configuration
+
+```bash
+docker compose --env-file .env.docker config -q
+```
+
+Latest locally verified result:
+
+```text
+Docker Compose configuration: PASS
+```
+
+### RAG Integration Testing
+
+The following checks were completed locally:
+
+- Saved research ingestion into PostgreSQL
+- Embedding storage in pgvector
+- All 10 master guides present
+- 15 stored research chunks
+- Research chunks remain unpublished
+- Relevant guide retrieval
+- Responses constructed from retrieved chunk content
+- No unrelated guide returned in the tested fallback case
+- Real Gemini chatbot answer using the research retrieval flow
+
+Result:
+
+```text
+10/10 database chunk answers: PASS
+Real Gemini grounded answer: PASS
+```
+
+### Real HTTP Chatbot Testing
+
+Authenticated requests were tested through the Docker-hosted API for all 10 saved municipal service topics.
+
+Result:
+
+```text
+10/10 municipal service chatbot topics: PASS
+```
+
+### Additional Checks
+
+- Git whitespace validation
+- Tracked-file hygiene check
+- Python syntax compilation
+- JWT-authenticated request testing
+- Error handling and role-based access tests
+
+### Remaining Environment Verification
+
+A completely fresh Git clone with new Docker volumes should be tested before final submission.
+
+The MCP HTTP and stdio capabilities should also be demonstrated with an actual MCP client.
+
+---
+
+## 16. Business Model and Commercial Potential
+
+JonoSeba is designed as a potential digital service platform for small municipalities and citizen-service organizations.
+
+### Target Customers
+
+Potential paying customers include:
+
+- Small municipalities
+- Local citizen-service management organizations
+- Municipal support service providers
+- Administrative teams responsible for complaint management
+
+### Customer Problem
+
+Municipal administrators often rely on manual workflows, spreadsheets, telephone calls, and separate records.
+
+These approaches can create:
+
+- Delayed complaint processing
+- Difficulty tracking citizen requests
+- Repeated administrative questions
+- Disconnected department information
+- Poor visibility into complaint progress
+
+### Proposed Revenue Model
+
+JonoSeba could use a business-to-organization model consisting of:
+
+1. One-time software setup and implementation fee
+2. Annual hosting and maintenance subscription
+3. Optional customization and training fees
+
+Pricing would depend on organization size, hosting requirements, and requested functionality.
+
+### Why Customers Might Pay
+
+JonoSeba provides a combination of features that may reduce repetitive manual work:
+
+- Centralized complaint records
+- Citizen self-service tracking
+- Department-based complaint management
+- AI-assisted service information
+- Administrative dashboards
+- Expandable API and MCP integrations
+
+### Commercial Status
+
+This is a proposed business model.
+
+JonoSeba does not claim to have existing paying customers, municipal contracts, or institutional partnerships.
+
+---
+
+## 17. GitHub and Code Quality
+
+The project uses Git and GitHub for version control.
+
+Recommended development practices:
+
+- Keep commits small and descriptive
+- Use meaningful commit prefixes such as `feat:`, `fix:`, `test:` and `docs:`
+- Do not commit environment secrets
+- Keep generated files out of version control
+- Maintain updated setup documentation
+- Test backend changes before pushing
+- Verify frontend production builds
+- Use migrations for database schema changes
+
+### Git Checks
+
+```bash
+git status --short
+git diff --check
+git log -5 --oneline
+```
+
+### Push Changes
+
+```bash
+git add README.md
+git commit -m "docs: update final project documentation"
+git push
+```
+
+Run the commit command only when the README has new changes to commit.
+
+---
+
+## 18. Final Demonstration Plan
+
+A demonstration video will be prepared for the final PHITRON submission.
+
+The planned duration is approximately 5–10 minutes.
+
+The video will use the developer's own voice and demonstrate:
+
+1. Project overview
+2. Problem and target users
+3. Citizen and admin interfaces
+4. User registration and authentication
+5. Complaint creation and management
+6. Database-backed Gemini tool calling
+7. Knowledge ingestion and RAG retrieval
+8. MCP server functionality
+9. The five required application data flows
+10. Important project code and architecture decisions
+
+The video will be uploaded to Google Drive with appropriate sharing permissions.
+
+---
+
+## 19. Deployment Plan
+
+The backend will be deployed on Render for final submission.
+
+The deployed Swagger documentation should be accessible at:
+
+```text
+https://YOUR_RENDER_SERVICE_URL/docs
+```
+
+Deployment is planned after completing local development, testing, and repository preparation.
+
+The deployment environment must provide the required PostgreSQL, pgvector, Gemini credentials, and application secrets.
+
+---
+
+## 20. Submission Links
+
+The PHITRON final submission requires three links.
+
+### GitHub Repository
+
+```text
+ADD_YOUR_PUBLIC_GITHUB_REPOSITORY_URL
+```
+
+### Google Drive Demonstration Video
+
+```text
+ADD_YOUR_PUBLIC_GOOGLE_DRIVE_VIDEO_URL
+```
+
+### Live Render Swagger Documentation
+
+```text
+ADD_YOUR_LIVE_RENDER_SWAGGER_URL
+```
+
+Replace these placeholders with actual working URLs before submission.
+
+The GitHub repository must be publicly accessible, the Google Drive video must be viewable by anyone with the link, and the Render Swagger link must open successfully.
+
+---
+
+## 21. Project Status
+
+### Completed Locally
+
+- FastAPI backend
+- PostgreSQL integration
+- Alembic migrations
+- Domain API and complaint management
+- JWT authentication and authorization
+- Gemini chatbot integration
+- Database-backed tool calling
+- RAG knowledge ingestion
+- pgvector retrieval
+- 10 saved municipal service guides
+- Grounded research-based chatbot responses
+- MCP server implementation
+- Docker Compose integration
+- React frontend
+- Backend automated tests
+- Frontend production build
+
+### Final Preparation
+
+- Fresh-clone setup verification
+- Final MCP transport demonstration
+- Final repository and README checks
+- Render deployment
+- Demonstration video
+- Submission link verification
+
+---
+
+## 22. Conclusion
+
+JonoSeba demonstrates how modern backend engineering, AI assistance, vector search, and modular application design can improve municipal citizen-service workflows.
+
+The project combines practical complaint management with conversational access to stored service information.
+
+Its architecture is designed for continued development, additional municipal integrations, and potential organizational deployment.
+
+**JonoSeba — Digital Citizen Services Made Simpler.**
