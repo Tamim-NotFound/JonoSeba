@@ -14,3 +14,7 @@ venv/
 .idea/
 .vscode/
 
+
+.env.docker
+
+knowledge_reviews/
