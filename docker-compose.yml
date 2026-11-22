@@ -1,0 +1,97 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: jonoseba_db
+      POSTGRES_USER: jonoseba
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}
+
+    volumes:
+      - jonoseba_postgres_data:/var/lib/postgresql/data
+      - ./docker/init-vector.sql:/docker-entrypoint-initdb.d/01-vector.sql:ro
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U jonoseba -d jonoseba_db
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+    networks:
+      - jonoseba_network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: postgresql+asyncpg://jonoseba:${POSTGRES_PASSWORD}@db:5432/jonoseba_db
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    command:
+      - sh
+      - -c
+      - |
+        uv run --no-sync alembic upgrade head &&
+        exec uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+    networks:
+      - jonoseba_network
+
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: postgresql+asyncpg://jonoseba:${POSTGRES_PASSWORD}@db:5432/jonoseba_db
+      MCP_HTTP_HOST: "0.0.0.0"
+      MCP_HTTP_PORT: "8001"
+
+    ports:
+      - "127.0.0.1:8001:8001"
+
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+    command:
+      - uv
+      - run
+      - --no-sync
+      - python
+      - -m
+      - app.integrations.mcp.http_server
+
+    networks:
+      - jonoseba_network
+
+volumes:
+  jonoseba_postgres_data:
+
+networks:
+  jonoseba_network:
+    driver: bridge
