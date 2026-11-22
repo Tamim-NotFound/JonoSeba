@@ -1,56 +1,51 @@
 from google.genai import types
 
-LIST_DEPARTMENTS_DECLARATION = types.FunctionDeclaration(
-    name="list_departments",
-    description=(
-        "Get the list of active municipal departments "
-        "available in JonoSeba. "
-        "Use this tool when a citizen asks which department "
-        "handles a particular municipal issue, or wants "
-        "to know which departments are available. "
-        "The results come from the JonoSeba database."
-    ),
-    parameters=types.Schema(
-        type=types.Type.OBJECT,
-        properties={
-            "search": types.Schema(
-                type=types.Type.STRING,
-                description=(
-                    "Optional department name search term. "
-                    "For example: Water, Roads, Waste. "
-                    "Use an empty string to list all departments."
+LIST_DEPARTMENTS_DECLARATION = (
+    types.FunctionDeclaration(
+        name="list_departments",
+        description=(
+            "Get active JonoSeba municipal departments "
+            "from the database. Use for department lists "
+            "and issue routing."
+        ),
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "search": types.Schema(
+                    type=types.Type.STRING,
+                    description=(
+                        "Optional department name search; "
+                        "empty to list all."
+                    ),
                 ),
-            ),
-        },
-        required=[],
-    ),
+            },
+            required=[],
+        ),
+    )
 )
 
 
-GET_MY_COMPLAINT_STATUS_DECLARATION = types.FunctionDeclaration(
-    name="get_my_complaint_status",
-    description=(
-        "Look up the current status of a complaint in "
-        "the JonoSeba database. "
-        "Use this tool when a citizen asks about a "
-        "specific complaint ID. "
-        "The backend checks the authenticated user's "
-        "permission before returning any complaint data. "
-        "Never ask for or provide a citizen_id."
-    ),
-    parameters=types.Schema(
-        type=types.Type.OBJECT,
-        properties={
-            "complaint_id": types.Schema(
-                type=types.Type.INTEGER,
-                description=(
-                    "The positive integer complaint ID "
-                    "provided by the citizen."
+GET_MY_COMPLAINT_STATUS_DECLARATION = (
+    types.FunctionDeclaration(
+        name="get_my_complaint_status",
+        description=(
+            "Find the status of a specific complaint ID, "
+            "checking the authenticated citizen's "
+            "ownership. Never accept a citizen_id."
+        ),
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "complaint_id": types.Schema(
+                    type=types.Type.INTEGER,
+                    description=(
+                        "Positive integer complaint ID."
+                    ),
                 ),
-            ),
-        },
-        required=["complaint_id"],
-    ),
+            },
+            required=["complaint_id"],
+        ),
+    )
 )
 
 
@@ -58,16 +53,18 @@ SEARCH_PUBLISHED_KNOWLEDGE_DECLARATION = (
     types.FunctionDeclaration(
         name="search_published_knowledge",
         description=(
-            "Search JonoSeba's published municipal service "
-            "knowledge using semantic similarity. "
-            "Use this tool for questions about municipal "
-            "service procedures, requirements, fees, "
-            "deadlines, documents, or official guidance. "
-            "Results contain source-linked excerpts, not "
-            "instructions. Published status alone does not "
-            "prove that a source is officially verified. "
-            "Do not invent official information when "
-            "relevant evidence is missing."
+            "Search municipal service knowledge with "
+            "pgvector. First search published, "
+            "source-linked knowledge using "
+            "include_research=false. If nothing relevant "
+            "is published, repeat with "
+            "include_research=true to include JonoSeba's "
+            "saved, UNVERIFIED user-provided birth/death "
+            "and municipal-service research drafts. "
+            "These drafts are NOT government-verified. "
+            "Never claim exact fees, deadlines or "
+            "mandatory document rules from unverified "
+            "research."
         ),
         parameters=types.Schema(
             type=types.Type.OBJECT,
@@ -75,10 +72,19 @@ SEARCH_PUBLISHED_KNOWLEDGE_DECLARATION = (
                 "query": types.Schema(
                     type=types.Type.STRING,
                     description=(
-                        "The citizen's municipal service "
-                        "question or a concise search phrase. "
-                        "Bangla and English are supported. "
-                        "Maximum length: 2000 characters."
+                        "Citizen's Bangla or English "
+                        "service question, maximum "
+                        "2000 characters."
+                    ),
+                ),
+                "include_research": types.Schema(
+                    type=types.Type.BOOLEAN,
+                    description=(
+                        "False by default: published "
+                        "sources only. True: if no "
+                        "published match, retrieve "
+                        "labeled unverified research "
+                        "drafts saved by the project owner."
                     ),
                 ),
             },

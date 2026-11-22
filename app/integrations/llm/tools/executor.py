@@ -7,6 +7,7 @@ from pydantic import (
     ValidationError,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.integrations.llm.tools.complaints import (
     get_my_complaint_status,
 )
@@ -49,6 +50,11 @@ class KnowledgeSearchArgs(BaseModel):
         ),
     ]
 
+    include_research: bool = Field(
+        default=False,
+        strict=True,
+    )
+
 
 async def execute_ai_tool(
     *,
@@ -58,27 +64,33 @@ async def execute_ai_tool(
     current_user: User,
 ) -> dict[str, Any]:
     """
-    Execute only approved JonoSeba AI tools.
+    Execute only approved JonoSeba tools.
 
-    Database session and authenticated user are
-    provided by the backend, never by Gemini.
+    Database session and authenticated user come
+    from the backend, never from Gemini.
     """
 
     if not isinstance(arguments, dict):
         return {
             "success": False,
-            "error": "Tool arguments must be a JSON object.",
+            "error": (
+                "Tool arguments must be a JSON object."
+            ),
         }
 
     if tool_name == "list_departments":
         try:
-            validated = ListDepartmentsArgs.model_validate(
-                arguments
+            validated = (
+                ListDepartmentsArgs.model_validate(
+                    arguments
+                )
             )
         except ValidationError:
             return {
                 "success": False,
-                "error": "Invalid department search arguments.",
+                "error": (
+                    "Invalid department search arguments."
+                ),
             }
 
         result = await list_departments(
@@ -93,13 +105,17 @@ async def execute_ai_tool(
 
     if tool_name == "get_my_complaint_status":
         try:
-            validated = ComplaintStatusArgs.model_validate(
-                arguments
+            validated = (
+                ComplaintStatusArgs.model_validate(
+                    arguments
+                )
             )
         except ValidationError:
             return {
                 "success": False,
-                "error": "Invalid complaint ID arguments.",
+                "error": (
+                    "Invalid complaint ID arguments."
+                ),
             }
 
         result = await get_my_complaint_status(
@@ -115,18 +131,29 @@ async def execute_ai_tool(
 
     if tool_name == "search_published_knowledge":
         try:
-            validated = KnowledgeSearchArgs.model_validate(
-                arguments
+            validated = (
+                KnowledgeSearchArgs.model_validate(
+                    arguments
+                )
             )
         except ValidationError:
             return {
                 "success": False,
-                "error": "Invalid knowledge search arguments.",
+                "error": (
+                    "Invalid knowledge search arguments."
+                ),
             }
 
+        kwargs: dict[str, Any] = {
+            "db": db,
+            "query": validated.query,
+        }
+
+        if validated.include_research:
+            kwargs["include_research"] = True
+
         result = await search_published_knowledge(
-            db=db,
-            query=validated.query,
+            **kwargs
         )
 
         return {
