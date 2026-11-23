@@ -1,31 +1,39 @@
+"""MCP stdio entrypoint with clean JSON-RPC output."""
+
 import logging
-from app.db.session import engine
+import sys
+
 from app.integrations.mcp.server import mcp
-
-
-def configure_stdio_server():
-    """
-    Prepare MCP for stdio transport.
-
-    stdout must contain only MCP protocol messages.
-    SQLAlchemy query logging must not interfere with
-    the MCP client's JSON-RPC communication.
-    """
-
-    # Disable SQLAlchemy's echo-based SQL logging.
-    engine.echo = False
-
-    # Prevent SQL query messages from being emitted at INFO.
-    logging.getLogger(
-        "sqlalchemy.engine"
-    ).setLevel(logging.WARNING)
-
-    return mcp
+from app.db.session import engine
 
 
 def main() -> None:
-    server = configure_stdio_server()
-    server.run(transport="stdio")
+    # SQLAlchemy must not print SQL statements to stdout.
+    engine.sync_engine.echo = False
+
+    logging.getLogger("sqlalchemy.engine").setLevel(
+        logging.WARNING
+    )
+
+    # Route existing console logging to stderr.
+    loggers = [logging.getLogger()]
+
+    loggers.extend(
+        logger
+        for logger in logging.Logger.manager.loggerDict.values()
+        if isinstance(logger, logging.Logger)
+    )
+
+    for logger in loggers:
+        for handler in logger.handlers:
+            if (
+                isinstance(handler, logging.StreamHandler)
+                and handler.stream is sys.stdout
+            ):
+                handler.setStream(sys.stderr)
+
+    # stdout is reserved for MCP JSON-RPC messages.
+    mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":
