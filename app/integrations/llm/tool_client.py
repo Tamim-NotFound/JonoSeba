@@ -439,6 +439,44 @@ def _select_research_keys(
 
 
 
+
+def _birth_age_group(message: str) -> str | None:
+    """Select the correct birth-registration age bracket."""
+    import re
+
+    query = message.casefold().translate(
+        str.maketrans("০১২৩৪৫৬৭৮৯", "0123456789")
+    )
+
+    years = re.search(
+        r"(\d{1,3})\s*"
+        r"(?:বছর|years?|yrs?|bochor|bchor|"
+        r"bocchor|bochhor|bosor)",
+        query,
+    )
+
+    if years:
+        age = int(years.group(1))
+        if 1 <= age <= 5:
+            return "child"
+        if age > 5:
+            return "older"
+
+    days = re.search(
+        r"(\d{1,4})\s*(?:দিন|days?)",
+        query,
+    )
+
+    if days:
+        age = int(days.group(1))
+        if age <= 45:
+            return "newborn"
+        if age <= 1825:
+            return "child"
+
+    return None
+
+
 def build_research_answer(
     message: str,
     results: list[dict],
@@ -535,6 +573,7 @@ def build_research_answer(
     }
 
     answers = []
+    age_group = _birth_age_group(message)
 
     for key in requested[:2]:
         matching = [
@@ -604,16 +643,45 @@ def build_research_answer(
             f"**সংশ্লিষ্ট দপ্তর:** {departments[key]}",
         ]
 
+
         for heading, field in (
             ("প্রয়োজনীয় কাগজপত্র", "documents"),
             ("সরকারি ফি", "fees"),
             ("আবেদন/সেবা গ্রহণের প্রক্রিয়া", "process"),
         ):
-            if collected[field]:
-                answer.append(f"\n**{heading}:**")
+            items = collected[field]
+
+            if key == "birth_registration_new" and age_group:
+                if field == "documents":
+                    prefix = {
+                        "newborn": "০–৪৫ দিন",
+                        "child": "৪৬ দিন–৫ বছর",
+                        "older": "৫ বছরের বেশি",
+                    }[age_group]
+
+                    items = [
+                        item for item in items
+                        if item.startswith("সাধারণ শর্ত")
+                        or item.startswith(prefix)
+                    ]
+
+                elif field == "fees":
+                    prefix = {
+                        "newborn": "জন্মের ৪৫ দিন",
+                        "child": "৪৬ দিন থেকে ৫ বছর",
+                        "older": "৫ বছরের বেশি বয়সে",
+                    }[age_group]
+
+                    items = [
+                        item for item in items
+                        if item.startswith(prefix)
+                    ]
+
+            if items:
+                answer.append("")
+                answer.append(f"**{heading}:**")
                 answer.extend(
-                    "- " + item
-                    for item in collected[field]
+                    "- " + item for item in items
                 )
 
         answers.append("\n".join(answer))
