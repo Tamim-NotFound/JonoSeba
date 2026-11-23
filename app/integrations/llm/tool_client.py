@@ -684,6 +684,97 @@ def build_research_answer(
                     "- " + item for item in items
                 )
 
+
+        # DOCUMENTS_ONLY_BIRTH_RESPONSE
+        # Keep RAG results; tailor the final answer to the question.
+        q = message.casefold()
+
+        asks_documents = any(
+            term in q
+            for term in (
+                "কাগজ", "পেপার", "ডকুমেন্ট",
+                "papers", "paper", "documents",
+                "document", "kagoj", "kagaz",
+            )
+        )
+
+        asks_other_details = any(
+            term in q
+            for term in (
+                "ফি", "টাকা", "fee", "cost",
+                "price", "প্রক্রিয়া", "process",
+                "procedure", "how to apply",
+            )
+        )
+
+        if (
+            key == "birth_registration_new"
+            and age_group is not None
+            and asks_documents
+            and not asks_other_details
+        ):
+            age_prefix = {
+                "newborn": "০–৪৫ দিন",
+                "child": "৪৬ দিন–৫ বছর",
+                "older": "৫ বছরের বেশি",
+            }[age_group]
+
+            selected_documents = []
+
+            for item in collected["documents"]:
+                if not item.startswith(age_prefix):
+                    continue
+
+                detail = item.split(":", 1)[-1].strip()
+
+                for part in detail.split(";"):
+                    part = part.strip().rstrip("।").strip()
+                    if part and part not in selected_documents:
+                        selected_documents.append(part)
+
+            if selected_documents:
+                common = " ".join(
+                    item
+                    for item in collected["documents"]
+                    if item.startswith("সাধারণ শর্ত")
+                )
+
+                answer = [
+                    "**আপনার শিশুর জন্মনিবন্ধনের জন্য "
+                    "প্রয়োজনীয় কাগজপত্র:**",
+                    "",
+                ]
+
+                for index, item in enumerate(
+                    selected_documents, start=1
+                ):
+                    if (
+                        "পিতা-মাতার জন্মনিবন্ধন" in item
+                        and "১৭ ডিজিটের" in common
+                    ):
+                        item = item.replace(
+                            "পিতা-মাতার জন্মনিবন্ধন",
+                            "পিতা-মাতার ১৭ ডিজিটের "
+                            "অনলাইন জন্মনিবন্ধন",
+                        )
+
+                    answer.append(f"{index}. {item}।")
+
+                if "সচল মোবাইল নম্বর" in common:
+                    answer.extend([
+                        "",
+                        "**অতিরিক্ত:** OTP-এর জন্য "
+                        "সচল মোবাইল নম্বর রাখবেন।",
+                    ])
+
+                if "পিতা-মাতার জন্ম ২০০১ সালের আগে" in common:
+                    answer.extend([
+                        "",
+                        "**নোট:** পিতা-মাতার জন্ম "
+                        "২০০১ সালের আগে হলে তাঁদের "
+                        "NID নম্বরের শর্ত প্রযোজ্য।",
+                    ])
+
         answers.append("\n".join(answer))
 
     return "\n\n".join(answers) if answers else None
