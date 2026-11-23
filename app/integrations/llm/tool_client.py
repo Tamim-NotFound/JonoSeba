@@ -438,11 +438,12 @@ def _select_research_keys(
 
 
 
+
 def build_research_answer(
     message: str,
     results: list[dict],
 ) -> str | None:
-    """Answer using only the retrieved research excerpts."""
+    """Answer directly from matching retrieved knowledge chunks."""
     if not isinstance(message, str) or not message.strip():
         return None
 
@@ -451,111 +452,103 @@ def build_research_answer(
     topics = (
         (
             "birth_registration_correction",
-            ("জন্মনিবন্ধন সংশোধন", "জন্মনিবন্ধনের তথ্য সংশোধন",
-             "birth registration correction"),
+            ("জন্মনিবন্ধন সংশোধন", "জন্ম নিবন্ধন সংশোধন",
+             "জন্ম তারিখ সংশোধন", "জন্মতারিখ সংশোধন",
+             "birth correction", "birth certificate correction"),
         ),
         (
             "birth_certificate_reprint",
-            ("হারানো জন্ম", "পুনঃমুদ্রণ",
-             "birth certificate reprint", "lost birth"),
+            ("হারানো জন্ম", "জন্মসনদ হার", "জন্ম সনদ হার",
+             "নকল জন্ম", "পুনঃমুদ্রণ", "পুনর্মুদ্রণ",
+             "birth reprint", "lost birth", "duplicate birth"),
+        ),
+        (
+            "death_registration",
+            ("মৃত্যু", "death", "mrittu", "mrityu"),
         ),
         (
             "birth_registration_new",
             ("জন্ম", "birth", "jonmo"),
         ),
         (
-            "death_registration",
-            ("মৃত্যু", "death", "mrittu"),
-        ),
-        (
             "trade_license",
-            ("ট্রেড", "trade license", "trade licence"),
+            ("ট্রেড", "ব্যবসার লাইসেন্স", "trade",
+             "business license", "business licence"),
         ),
         (
             "citizen_heir_certificates",
-            ("ওয়ারিশ", "নাগরিকত্ব", "চারিত্রিক",
-             "heir", "citizenship certificate"),
+            ("নাগরিকত্ব", "চারিত্রিক", "ওয়ারিশ",
+             "পারিবারিক সনদ", "citizenship certificate",
+             "heir certificate", "warish", "charitrik"),
         ),
         (
             "holding_tax",
-            ("হোল্ডিং", "holding"),
+            ("হোল্ডিং", "নামজারি", "holding", "mutation"),
         ),
         (
             "building_plan_approval",
-            ("ভবন", "নকশা", "building plan"),
+            ("ভবন", "নকশা", "building plan",
+             "building approval", "naksha"),
         ),
         (
             "water_connection",
-            ("পানি", "water connection", "water supply"),
+            ("পানি", "জল সংযোগ", "water", "pani connection"),
         ),
         (
             "health_epi_mosquito",
-            ("স্বাস্থ্য", "টিকা", "মশা",
-             "epi", "vaccination", "mosquito"),
+            ("স্বাস্থ্য", "টিকা", "মশা", "মশক",
+             "epi", "vaccination", "mosquito", "tika"),
         ),
     )
 
     requested = [
-        key
-        for key, terms in topics
+        key for key, terms in topics
         if any(term in query for term in terms)
     ]
 
-    # No recognized service: do not return an unrelated guide.
     if not requested:
         return None
 
-    if (
-        "birth_registration_correction" in requested
-        or "birth_certificate_reprint" in requested
+    if any(
+        key in requested
+        for key in (
+            "birth_registration_correction",
+            "birth_certificate_reprint",
+        )
     ):
         requested = [
             key for key in requested
             if key != "birth_registration_new"
         ]
 
-    wants_fees = any(
-        term in query
-        for term in ("ফি", "খরচ", "টাকা", "fee", "cost", "koto")
-    )
+    departments = {
+        "birth_registration_new": "জন্ম ও মৃত্যু নিবন্ধন শাখা / স্বাস্থ্য বিভাগ",
+        "birth_registration_correction": "জন্ম ও মৃত্যু নিবন্ধন শাখা / স্বাস্থ্য বিভাগ",
+        "birth_certificate_reprint": "জন্ম ও মৃত্যু নিবন্ধন শাখা / স্বাস্থ্য বিভাগ",
+        "death_registration": "জন্ম ও মৃত্যু নিবন্ধন শাখা / স্বাস্থ্য বিভাগ",
+        "trade_license": "লাইসেন্স শাখা / রাজস্ব বিভাগ",
+        "citizen_heir_certificates": "সাধারণ প্রশাসন শাখা / ওয়ার্ড কাউন্সিলর কার্যালয়",
+        "holding_tax": "কর নির্ধারণ ও আদায় শাখা / রাজস্ব বিভাগ",
+        "building_plan_approval": "প্রকৌশল বিভাগ / নগর পরিকল্পনা শাখা",
+        "water_connection": "পানি সরবরাহ শাখা / প্রকৌশল বিভাগ",
+        "health_epi_mosquito": "স্বাস্থ্য বিভাগ / মশক নিধন শাখা",
+    }
 
-    wants_process = any(
-        term in query
-        for term in (
-            "কীভাবে", "কিভাবে", "প্রক্রিয়া",
-            "আবেদন", "how", "apply", "process", "kivabe",
-        )
-    )
-
-    bangla = bool(BANGLA_PATTERN.search(message))
-
-    output = [
-        "সংরক্ষিত JonoSeba গবেষণার ভিত্তিতে "
-        "(সরকারিভাবে স্বাধীন যাচাইকৃত নয়):"
-        if bangla
-        else "Based on saved JonoSeba research "
-             "(not independently government-verified):"
-    ]
+    answers = []
 
     for key in requested[:2]:
-        document_key = "bd-master-" + key
-
-        matches = [
+        matching = [
             item for item in results
             if (
                 isinstance(item, dict)
-                and item.get("document_key") == document_key
+                and item.get("document_key") == f"bd-master-{key}"
                 and item.get("verified") is False
                 and isinstance(item.get("content"), str)
             )
         ]
 
-        if not matches:
+        if not matching:
             continue
-
-        title = str(
-            matches[0].get("document_title") or key
-        )
 
         collected = {
             "documents": [],
@@ -564,31 +557,29 @@ def build_research_answer(
         }
         seen = set()
 
-        for match in matches:
+        for match in matching:
             section = None
 
             for raw_line in match["content"].splitlines():
                 line = raw_line.strip()
 
-                if (
-                    not line
-                    or URL_PATTERN.search(line)
-                    or "bdris.gov.bd" in line.casefold()
-                ):
+                if not line or URL_PATTERN.search(line):
                     continue
 
                 if line.startswith("###"):
-                    if (
-                        "কাগজ" in line
-                        or "নথি" in line
-                        or "documents" in line.casefold()
+                    if any(
+                        word in line
+                        for word in ("কাগজ", "নথি", "Documents", "documents")
                     ):
                         section = "documents"
-                    elif "ফি" in line:
+                    elif any(
+                        word in line
+                        for word in ("ফি", "Fee", "fee")
+                    ):
                         section = "fees"
-                    elif (
-                        "আবেদন" in line
-                        or "প্রক্রিয়া" in line
+                    elif any(
+                        word in line
+                        for word in ("আবেদন", "প্রক্রিয়া", "Process", "process")
                     ):
                         section = "process"
                     else:
@@ -596,79 +587,38 @@ def build_research_answer(
 
                     continue
 
-                if (
-                    line.startswith("- ")
-                    and section in collected
-                ):
+                if line.startswith("- ") and section:
                     item = line[2:].strip()
 
-                    if (
-                        item
-                        and (section, item) not in seen
-                    ):
+                    if (section, item) not in seen:
                         seen.add((section, item))
                         collected[section].append(item)
 
         if not collected["documents"]:
             continue
 
-        output.append(f"\n### {title}")
+        title = matching[0].get("document_title") or key
 
-        output.append(
-            "\nসম্ভাব্য প্রয়োজনীয় কাগজপত্র:"
-            if bangla
-            else "\nPossible supporting documents:"
-        )
+        answer = [
+            f"### {title}",
+            f"**সংশ্লিষ্ট দপ্তর:** {departments[key]}",
+        ]
 
-        output.extend(
-            "- " + item
-            for item in collected["documents"]
-        )
+        for heading, field in (
+            ("প্রয়োজনীয় কাগজপত্র", "documents"),
+            ("সরকারি ফি", "fees"),
+            ("আবেদন/সেবা গ্রহণের প্রক্রিয়া", "process"),
+        ):
+            if collected[field]:
+                answer.append(f"\n**{heading}:**")
+                answer.extend(
+                    "- " + item
+                    for item in collected[field]
+                )
 
-        if wants_fees and collected["fees"]:
-            output.append(
-                "\nগবেষণায় উল্লেখিত ফি:"
-                if bangla
-                else "\nFees mentioned in research:"
-            )
-            output.extend(
-                "- " + item
-                for item in collected["fees"]
-            )
+        answers.append("\n".join(answer))
 
-        if wants_process and collected["process"]:
-            output.append(
-                "\nগবেষণায় উল্লেখিত আবেদনপদ্ধতি:"
-                if bangla
-                else "\nProcedure mentioned in research:"
-            )
-            output.extend(
-                "- " + item
-                for item in collected["process"]
-            )
-
-        output.append(
-            "\nতথ্যের উৎস: retrieved JonoSeba "
-            f"research chunk — {title}"
-            if bangla
-            else "\nSource: retrieved JonoSeba "
-                 f"research chunk — {title}"
-        )
-
-    if len(output) == 1:
-        return None
-
-    output.append(
-        "\nনোট: এগুলো তোমার সংরক্ষিত গবেষণার "
-        "তথ্য; বর্তমান সরকারি নিয়ম হিসেবে "
-        "স্বাধীনভাবে যাচাই করা হয়নি।"
-        if bangla
-        else "\nNote: These are saved research notes, "
-             "not independently verified current "
-             "government rules."
-    )
-
-    return "\n".join(output)
+    return "\n\n".join(answers) if answers else None
 
 
 def validate_research_answer(
@@ -691,6 +641,40 @@ def validate_research_answer(
         results,
     )
 
+
+
+from app.modules.knowledge.full_service_data import (
+    COMPLAINT_ROUTING_GUIDE,
+)
+
+JONOSEBA_TOOL_SYSTEM_PROMPT += """
+You are JonoSeba, a professional municipal citizen-service assistant.
+
+LANGUAGE:
+- Answer in Bangla, English, or Banglish to match the user.
+- Be clear, friendly, practical, and use bullet points.
+- Do not give generic apologies when the information is available.
+
+KNOWLEDGE:
+- For municipal services, ALWAYS call search_published_knowledge.
+- Set include_research=True so saved JonoSeba service guides are included.
+- Use the retrieved service information directly.
+- Explain department, documents, fees, and process when available.
+- Use exact amounts and conditions from JonoSeba knowledge.
+- Do not invent information absent from the knowledge base.
+
+SCOPE:
+- You assist with municipal services and citizen complaints.
+- For unrelated questions, politely explain in the user's language
+  that JonoSeba only helps with municipal services and complaints.
+- Do not respond to unrelated questions with general-knowledge answers.
+
+COMPLAINTS:
+- Identify the responsible department.
+- Collect ward number, exact location, issue description, mobile number,
+  and other relevant details.
+- Never claim a complaint was saved unless the backend confirms it.
+""" + "\n\n" + COMPLAINT_ROUTING_GUIDE
 
 class GeminiToolClient:
     def __init__(self) -> None:
@@ -862,6 +846,9 @@ class GeminiToolClient:
                 arguments = dict(
                     function_call.args or {}
                 )
+
+                if tool_name == "search_published_knowledge":
+                    arguments["include_research"] = True
 
                 logger.info(
                     "Gemini requested tool: %s",

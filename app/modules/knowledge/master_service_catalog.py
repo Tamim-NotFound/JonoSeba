@@ -529,3 +529,11 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# Apply the complete JonoSeba citizen-service master knowledge.
+from app.modules.knowledge.full_service_data import (
+    enrich_catalog as _enrich_catalog,
+)
+
+SERVICE_GUIDES = _enrich_catalog(SERVICE_GUIDES)
