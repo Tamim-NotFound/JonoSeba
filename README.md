@@ -3,7 +3,7 @@
 
 ### AI-Powered Smart Citizen Services and Complaint Management Platform
 
-JonoSeba is a Bangladesh-focused citizen-service and complaint-management platform developed as a PHITRON Final Project.
+JonoSeba is a Bangladesh-focused citizen-service and complaint-management platform. 
 
 It combines **FastAPI, PostgreSQL, pgvector, Google Gemini, RAG, MCP, JWT authentication, Docker, and React** to provide a unified municipal service experience.
 
@@ -945,7 +945,6 @@ The `.env.example` file should contain safe configuration examples only.
 
 ## 14. Five Required Data Flows
 
-The PHITRON Final Project requires understanding five major application flows.
 
 ### 14.1 Domain API Data Flow
 
@@ -1228,90 +1227,16 @@ Recommended development practices:
 - Verify frontend production builds
 - Use migrations for database schema changes
 
-### Git Checks
-
-```bash
-git status --short
-git diff --check
-git log -5 --oneline
-```
-
-### Push Changes
-
-```bash
-git add README.md
-git commit -m "docs: update final project documentation"
-git push
-```
-
-Run the commit command only when the README has new changes to commit.
 
 ---
 
-## 18. Final Demonstration Plan
-
-A demonstration video will be prepared for the final PHITRON submission.
-
-The planned duration is approximately 5–10 minutes.
-
-The video will use the developer's own voice and demonstrate:
-
-1. Project overview
-2. Problem and target users
-3. Citizen and admin interfaces
-4. User registration and authentication
-5. Complaint creation and management
-6. Database-backed Gemini tool calling
-7. Knowledge ingestion and RAG retrieval
-8. MCP server functionality
-9. The five required application data flows
-10. Important project code and architecture decisions
-
-The video will be uploaded to Google Drive with appropriate sharing permissions.
-
----
-
-## 19. Deployment Plan
-
-The backend will be deployed on Render for final submission.
-
-The deployed Swagger documentation should be accessible at:
-
-```text
-https://YOUR_RENDER_SERVICE_URL/docs
-```
-
-Deployment is planned after completing local development, testing, and repository preparation.
-
-The deployment environment must provide the required PostgreSQL, pgvector, Gemini credentials, and application secrets.
-
----
-
-## 20. Submission Links
-
-The PHITRON final submission requires three links.
-
-### GitHub Repository
-
-```text
-https://github.com/Tamim-NotFound/JonoSeba
-```
-
-### Google Drive Demonstration Video
-
-```text
-https://drive.google.com/file/d/1Jk0MYLJcNGHFrJigWt32p6a9nJfv8APU/view?usp=drive_link
-```
+## 20. Live Links
 
 ### Live Render Swagger Documentation
 
 ```text
 https://jonoseba-api.onrender.com/docs
 ```
-
-Replace these placeholders with actual working URLs before submission.
-
-The GitHub repository must be publicly accessible, the Google Drive video must be viewable by anyone with the link, and the Render Swagger link must open successfully.
 
 ---
 
@@ -1336,14 +1261,6 @@ The GitHub repository must be publicly accessible, the Google Drive video must b
 - Backend automated tests
 - Frontend production build
 
-### Final Preparation
-
-- Fresh-clone setup verification
-- Final MCP transport demonstration
-- Final repository and README checks
-- Render deployment
-- Demonstration video
-- Submission link verification
 
 ---
 
