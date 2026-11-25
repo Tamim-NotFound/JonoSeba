@@ -1132,12 +1132,6 @@ The following checks were completed locally:
 - No unrelated guide returned in the tested fallback case
 - Real Gemini chatbot answer using the research retrieval flow
 
-Result:
-
-```text
-10/10 database chunk answers: PASS
-Real Gemini grounded answer: PASS
-```
 
 ### Real HTTP Chatbot Testing
 
@@ -1300,19 +1294,19 @@ The PHITRON final submission requires three links.
 ### GitHub Repository
 
 ```text
-ADD_YOUR_PUBLIC_GITHUB_REPOSITORY_URL
+https://github.com/Tamim-NotFound/JonoSeba
 ```
 
 ### Google Drive Demonstration Video
 
 ```text
-ADD_YOUR_PUBLIC_GOOGLE_DRIVE_VIDEO_URL
+https://drive.google.com/file/d/1Jk0MYLJcNGHFrJigWt32p6a9nJfv8APU/view?usp=drive_link
 ```
 
 ### Live Render Swagger Documentation
 
 ```text
-ADD_YOUR_LIVE_RENDER_SWAGGER_URL
+https://jonoseba-api.onrender.com/docs
 ```
 
 Replace these placeholders with actual working URLs before submission.
